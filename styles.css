@@ -1,0 +1,58 @@
+body {
+    min-height: 100vh;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #666;
+    box-shadow: 0 0 0 0.25rem rgba(0, 0, 0, 0.1);
+}
+
+.progress {
+    cursor: pointer;
+}
+
+.progress-bar {
+    transition: width 0.1s ease;
+}
+
+.btn-outline-dark:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.card {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#playPauseBtn, #downloadBtn, #skipBackBtn, #skipForwardBtn {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    position: relative;
+}
+
+.skip-text {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    white-space: nowrap;
+}
+
+.bi {
+    font-size: 1.2rem;
+}
+
+.text-muted {
+    opacity: 0.6;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

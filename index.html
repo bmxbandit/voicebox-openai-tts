@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceBox - OpenAI TTS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-white">
+    <div class="container py-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="apiKey" class="form-label">OpenAI API Key</label>
+                            <input type="password" class="form-control" id="apiKey" placeholder="Enter your OpenAI API key">
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="model" class="form-label">Model</label>
+                                <select class="form-select" id="model">
+                                    <option value="tts-1">Standard (tts-1)</option>
+                                    <option value="tts-1-hd">High Quality (tts-1-hd)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="voice" class="form-label">Voice</label>
+                                <select class="form-select" id="voice">
+                                    <option value="alloy">Alloy</option>
+                                    <option value="echo">Echo</option>
+                                    <option value="fable">Fable</option>
+                                    <option value="onyx">Onyx</option>
+                                    <option value="nova">Nova</option>
+                                    <option value="shimmer">Shimmer</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="format" class="form-label">Format</label>
+                                <select class="form-select" id="format">
+                                    <option value="mp3">MP3</option>
+                                    <option value="opus">Opus</option>
+                                    <option value="aac">AAC</option>
+                                    <option value="flac">FLAC</option>
+                                    <option value="pcm">PCM</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="text" class="form-label">Text to Synthesize</label>
+                            <textarea class="form-control" id="text" rows="6" placeholder="Enter text to convert to speech"></textarea>
+                        </div>
+
+                        <div class="audio-controls mb-3 text-center">
+                            <button class="btn btn-outline-dark me-2" id="generateBtn">
+                                <i class="bi bi-mic-fill"></i> Generate
+                            </button>
+                            <button class="btn btn-outline-dark me-2" id="skipBackBtn" disabled>
+                                <i class="bi bi-skip-backward-fill"></i>
+                                <span class="skip-text">15s</span>
+                            </button>
+                            <button class="btn btn-outline-dark me-2" id="playPauseBtn" disabled>
+                                <i class="bi bi-play-fill"></i>
+                            </button>
+                            <button class="btn btn-outline-dark me-2" id="skipForwardBtn" disabled>
+                                <i class="bi bi-skip-forward-fill"></i>
+                                <span class="skip-text">15s</span>
+                            </button>
+                            <button class="btn btn-outline-dark" id="downloadBtn" disabled>
+                                <i class="bi bi-download"></i>
+                            </button>
+                        </div>
+
+                        <div class="progress bg-light mb-2" style="height: 5px;">
+                            <div class="progress-bar bg-dark" role="progressbar" style="width: 0%"></div>
+                        </div>
+
+                        <audio id="audioPlayer" style="display: none;"></audio>
+                        
+                        <div class="text-muted small text-center">
+                            <i class="bi bi-info-circle"></i> This application uses AI-generated voices powered by OpenAI's TTS technology
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
