@@ -20,14 +20,14 @@
                         </div>
                         
                         <div class="row mb-3">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label for="model" class="form-label">Model</label>
                                 <select class="form-select" id="model">
                                     <option value="tts-1">Standard (tts-1)</option>
                                     <option value="tts-1-hd">High Quality (tts-1-hd)</option>
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label for="voice" class="form-label">Voice</label>
                                 <select class="form-select" id="voice">
                                     <option value="alloy">Alloy</option>
@@ -38,7 +38,7 @@
                                     <option value="shimmer">Shimmer</option>
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label for="format" class="form-label">Format</label>
                                 <select class="form-select" id="format">
                                     <option value="mp3">MP3</option>
@@ -48,11 +48,47 @@
                                     <option value="pcm">PCM</option>
                                 </select>
                             </div>
+                            <div class="col-md-3">
+                                <label for="maxChars" class="form-label">Max Characters</label>
+                                <input type="number" class="form-control" id="maxChars" value="4096" min="1">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="preSilence" class="form-label">Pre-silence (seconds)</label>
+                                <input type="number" class="form-control" id="preSilence" value="0" min="0" step="0.1">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="postSilence" class="form-label">Post-silence (seconds)</label>
+                                <input type="number" class="form-control" id="postSilence" value="0" min="0" step="0.1">
+                            </div>
                         </div>
 
                         <div class="mb-3">
                             <label for="text" class="form-label">Text to Synthesize</label>
                             <textarea class="form-control" id="text" rows="6" placeholder="Enter text to convert to speech"></textarea>
+                            <div class="text-muted mt-1" id="chunkInfo">
+                                <small>Text will be processed in <span id="chunkCount">1</span> chunk(s)</small>
+                                <button class="btn btn-sm btn-outline-secondary float-end" id="previewBtn">
+                                    <i class="bi bi-eye"></i> Preview Chunks
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Preview Modal -->
+                        <div class="modal fade" id="previewModal" tabindex="-1">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Text Chunk Preview</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div id="chunkPreview"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="audio-controls mb-3 text-center">
@@ -79,6 +115,13 @@
                             <div class="progress-bar bg-dark" role="progressbar" style="width: 0%"></div>
                         </div>
 
+                        <div id="processingProgress" class="text-center mb-2" style="display: none;">
+                            <small class="text-muted">Processing chunk <span id="currentChunk">0</span> of <span id="totalChunks">0</span></small>
+                            <div class="progress bg-light mt-1" style="height: 3px;">
+                                <div class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+
                         <audio id="audioPlayer" style="display: none;"></audio>
                         
                         <div class="text-muted small text-center">
@@ -89,6 +132,7 @@
             </div>
         </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

@@ -56,3 +56,13 @@ button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* New styles for chunk preview */
+pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin: 0;
+    padding: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
