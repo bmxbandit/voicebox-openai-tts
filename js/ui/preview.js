@@ -3,7 +3,7 @@
  */
 
 import { CONFIG } from '../config.js';
-import { getChunkInfo, generateChunkPreviewHtml } from '../utils/text.js';
+import { splitTextIntoChunks, generateChunkPreviewHtml, validateChunks } from '../utils/text.js';
 
 export class PreviewManager {
     constructor() {
@@ -11,6 +11,14 @@ export class PreviewManager {
         this.chunkPreview = document.getElementById(CONFIG.ELEMENTS.chunkPreview);
         this.previewModal = new bootstrap.Modal(document.getElementById(CONFIG.ELEMENTS.previewModal));
         this.chunkCountSpan = document.getElementById(CONFIG.ELEMENTS.chunkCount);
+        
+        // Silence settings elements
+        this.silenceInputs = {
+            h1: document.getElementById(CONFIG.ELEMENTS.h1Silence),
+            h2: document.getElementById(CONFIG.ELEMENTS.h2Silence),
+            paragraph: document.getElementById(CONFIG.ELEMENTS.paragraphSilence),
+            chapterEnd: document.getElementById(CONFIG.ELEMENTS.chapterEndSilence)
+        };
         
         this.initializeEventListeners();
     }
@@ -23,15 +31,48 @@ export class PreviewManager {
     }
 
     /**
+     * Get current silence settings
+     * @returns {Object} Current silence settings
+     */
+    getSilenceSettings() {
+        return {
+            h1: parseFloat(this.silenceInputs.h1.value),
+            h2: parseFloat(this.silenceInputs.h2.value),
+            paragraph: parseFloat(this.silenceInputs.paragraph.value),
+            chapterEnd: parseFloat(this.silenceInputs.chapterEnd.value)
+        };
+    }
+
+    /**
      * Show preview modal with chunk information
      * @param {string} text - Text to preview
-     * @param {number} maxChars - Maximum characters per chunk
      */
-    showPreview(text, maxChars) {
-        const chunkInfo = getChunkInfo(text, maxChars);
-        this.updateChunkCount(chunkInfo.count);
-        this.renderPreview(chunkInfo.chunks);
+    showPreview(text) {
+        const chunks = splitTextIntoChunks(text);
+        const validation = validateChunks(chunks);
+        
+        this.updateChunkCount(chunks.length);
+        this.renderPreview(chunks);
+
+        if (!validation.valid) {
+            this.showValidationWarning(validation.message);
+        }
+
         this.previewModal.show();
+    }
+
+    /**
+     * Show validation warning in preview
+     * @param {string} message - Warning message
+     */
+    showValidationWarning(message) {
+        const warningDiv = document.createElement('div');
+        warningDiv.className = 'alert alert-warning mb-3';
+        warningDiv.innerHTML = `
+            <i class="bi ${CONFIG.PREVIEW_STYLES.WARNING.icon}"></i>
+            ${message}
+        `;
+        this.chunkPreview.insertBefore(warningDiv, this.chunkPreview.firstChild);
     }
 
     /**
@@ -44,20 +85,11 @@ export class PreviewManager {
 
     /**
      * Render preview content
-     * @param {Array} chunks - Array of chunk information
+     * @param {Array} chunks - Array of text chunks
      */
     renderPreview(chunks) {
-        this.chunkPreview.innerHTML = chunks.map((chunk, index) => `
-            <div class="card mb-2">
-                <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <span>Chunk ${index + 1} (${chunk.length} characters)</span>
-                    <small class="text-muted">${chunk.paragraphs} paragraph(s)</small>
-                </div>
-                <div class="card-body">
-                    <pre class="mb-0" style="white-space: pre-wrap;">${chunk.text}</pre>
-                </div>
-            </div>
-        `).join('');
+        const silenceSettings = this.getSilenceSettings();
+        this.chunkPreview.innerHTML = generateChunkPreviewHtml(chunks, silenceSettings);
     }
 
     /**
@@ -76,13 +108,29 @@ export class PreviewManager {
     }
 
     /**
-     * Update preview when text or max characters change
+     * Update preview when text changes
      * @param {string} text - Current text
-     * @param {number} maxChars - Current max characters
      */
-    updatePreviewIfVisible(text, maxChars) {
+    updatePreviewIfVisible(text) {
         if (this.isPreviewVisible()) {
-            this.showPreview(text, maxChars);
+            this.showPreview(text);
         }
+    }
+
+    /**
+     * Get chunk information for text
+     * @param {string} text - Text to analyze
+     * @returns {Object} Chunk information
+     */
+    getChunkInfo(text) {
+        const chunks = splitTextIntoChunks(text);
+        const validation = validateChunks(chunks);
+        
+        return {
+            chunks,
+            count: chunks.length,
+            isValid: validation.valid,
+            validationMessage: validation.message
+        };
     }
 }

@@ -13,9 +13,12 @@ const DEFAULT_STATE = {
     voice: CONFIG.DEFAULT_VOICE,
     format: CONFIG.DEFAULT_FORMAT,
     text: '',
-    maxChars: CONFIG.DEFAULT_MAX_CHARS,
-    preSilence: 0,
-    postSilence: 0
+    silenceSettings: {
+        h1: CONFIG.DEFAULT_SILENCE.H1,
+        h2: CONFIG.DEFAULT_SILENCE.H2,
+        paragraph: CONFIG.DEFAULT_SILENCE.PARAGRAPH,
+        chapterEnd: CONFIG.DEFAULT_SILENCE.CHAPTER_END
+    }
 };
 
 export class StateManager {
@@ -27,7 +30,15 @@ export class StateManager {
         try {
             const savedState = localStorage.getItem(CONFIG.STORAGE_KEY);
             if (savedState) {
-                return { ...DEFAULT_STATE, ...JSON.parse(savedState) };
+                const parsedState = JSON.parse(savedState);
+                return {
+                    ...DEFAULT_STATE,
+                    ...parsedState,
+                    silenceSettings: {
+                        ...DEFAULT_STATE.silenceSettings,
+                        ...(parsedState.silenceSettings || {})
+                    }
+                };
             }
         } catch (error) {
             console.warn('Error loading saved state:', error);
@@ -41,16 +52,20 @@ export class StateManager {
      */
     static saveState(state) {
         try {
-            localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({
+            const stateToSave = {
                 apiKey: state.apiKey || '',
                 model: state.model || CONFIG.DEFAULT_MODEL,
                 voice: state.voice || CONFIG.DEFAULT_VOICE,
                 format: state.format || CONFIG.DEFAULT_FORMAT,
                 text: state.text || '',
-                maxChars: state.maxChars || CONFIG.DEFAULT_MAX_CHARS,
-                preSilence: state.preSilence || 0,
-                postSilence: state.postSilence || 0
-            }));
+                silenceSettings: {
+                    h1: state.silenceSettings?.h1 ?? CONFIG.DEFAULT_SILENCE.H1,
+                    h2: state.silenceSettings?.h2 ?? CONFIG.DEFAULT_SILENCE.H2,
+                    paragraph: state.silenceSettings?.paragraph ?? CONFIG.DEFAULT_SILENCE.PARAGRAPH,
+                    chapterEnd: state.silenceSettings?.chapterEnd ?? CONFIG.DEFAULT_SILENCE.CHAPTER_END
+                }
+            };
+            localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(stateToSave));
         } catch (error) {
             console.error('Error saving state:', error);
         }
@@ -63,7 +78,14 @@ export class StateManager {
      * @returns {Object} Updated state
      */
     static updateState(currentState, updates) {
-        const newState = { ...currentState, ...updates };
+        const newState = {
+            ...currentState,
+            ...updates,
+            silenceSettings: {
+                ...currentState.silenceSettings,
+                ...(updates.silenceSettings || {})
+            }
+        };
         this.saveState(newState);
         return newState;
     }
@@ -96,7 +118,36 @@ export class StateManager {
      */
     static setStateValue(key, value) {
         const state = this.loadState();
-        state[key] = value;
+        if (key === 'silenceSettings' && typeof value === 'object') {
+            state.silenceSettings = {
+                ...state.silenceSettings,
+                ...value
+            };
+        } else {
+            state[key] = value;
+        }
+        this.saveState(state);
+    }
+
+    /**
+     * Get silence settings
+     * @returns {Object} Current silence settings
+     */
+    static getSilenceSettings() {
+        const state = this.loadState();
+        return state.silenceSettings || DEFAULT_STATE.silenceSettings;
+    }
+
+    /**
+     * Update silence settings
+     * @param {Object} settings - New silence settings
+     */
+    static updateSilenceSettings(settings) {
+        const state = this.loadState();
+        state.silenceSettings = {
+            ...state.silenceSettings,
+            ...settings
+        };
         this.saveState(state);
     }
 }

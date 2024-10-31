@@ -1,5 +1,5 @@
 /**
- * Silence generation for pre and post audio
+ * Silence generation for different chunk types
  */
 
 import { CONFIG } from '../config.js';
@@ -31,56 +31,113 @@ export class SilenceGenerator {
     }
 
     /**
-     * Add silence to the beginning and/or end of an audio blob
-     * @param {Blob} audioBlob - Original audio blob
-     * @param {Object} options - Silence options
-     * @param {number} options.preSilence - Seconds of silence to add at start
-     * @param {number} options.postSilence - Seconds of silence to add at end
-     * @param {string} options.format - Output format
-     * @returns {Promise<Blob>} Audio blob with added silence
+     * Generate appropriate silence for chunk type
+     * @param {string} chunkType - Type of chunk ('h1', 'h2', 'paragraph', 'chapter_end')
+     * @param {Object} silenceSettings - Silence duration settings
+     * @param {string} format - Output format
+     * @returns {Promise<Blob>} Audio blob containing silence
      */
-    static async addSilence(audioBlob, { preSilence = 0, postSilence = 0, format }) {
-        // If no silence requested, return original blob
-        if (preSilence === 0 && postSilence === 0) {
-            return audioBlob;
+    static async generateChunkSilence(chunkType, silenceSettings, format) {
+        let duration = 0;
+        
+        switch (chunkType) {
+            case 'h1':
+                duration = silenceSettings.h1;
+                break;
+            case 'h2':
+                duration = silenceSettings.h2;
+                break;
+            case 'paragraph':
+                duration = silenceSettings.paragraph;
+                break;
+            case 'chapter_end':
+                duration = silenceSettings.chapterEnd;
+                break;
+            default:
+                duration = 0;
         }
 
-        const blobs = [];
-        
-        // Generate and add pre-silence
-        if (preSilence > 0) {
-            const preSilenceBlob = await this.generateSilence(preSilence, format);
-            blobs.push(preSilenceBlob);
-        }
-        
-        // Add original audio
-        blobs.push(audioBlob);
-        
-        // Generate and add post-silence
-        if (postSilence > 0) {
-            const postSilenceBlob = await this.generateSilence(postSilence, format);
-            blobs.push(postSilenceBlob);
-        }
-        
-        // Combine all blobs
-        return AudioProcessor.combineAudioBlobs(blobs, format);
+        if (duration <= 0) return null;
+        return this.generateSilence(duration, format);
     }
 
     /**
-     * Calculate silence duration in samples
-     * @param {number} seconds - Duration in seconds
-     * @returns {number} Number of samples
+     * Add silence between chunks
+     * @param {Array<Blob>} audioBlobs - Array of audio blobs
+     * @param {Array<Object>} chunks - Array of chunk information
+     * @param {Object} silenceSettings - Silence duration settings
+     * @param {string} format - Output format
+     * @returns {Promise<Array<Blob>>} Array of audio blobs with silence added
      */
-    static calculateSilenceSamples(seconds) {
-        return Math.floor(seconds * CONFIG.SAMPLE_RATE);
+    static async addChunkSilence(audioBlobs, chunks, silenceSettings, format) {
+        const result = [];
+        
+        for (let i = 0; i < audioBlobs.length; i++) {
+            // Add the audio chunk
+            result.push(audioBlobs[i]);
+            
+            // Add silence after chunk if not last chunk
+            if (i < audioBlobs.length - 1) {
+                const silenceBlob = await this.generateChunkSilence(
+                    chunks[i].type,
+                    silenceSettings,
+                    format
+                );
+                if (silenceBlob) {
+                    result.push(silenceBlob);
+                }
+            }
+        }
+        
+        return result;
     }
 
     /**
-     * Validate silence duration
-     * @param {number} duration - Duration in seconds
-     * @returns {boolean} Whether the duration is valid
+     * Calculate total silence duration
+     * @param {Array<Object>} chunks - Array of chunk information
+     * @param {Object} silenceSettings - Silence duration settings
+     * @returns {number} Total silence duration in seconds
      */
-    static validateSilenceDuration(duration) {
-        return duration >= 0 && duration <= 60; // Maximum 1 minute of silence
+    static calculateTotalSilence(chunks, silenceSettings) {
+        return chunks.reduce((total, chunk, index) => {
+            if (index === chunks.length - 1) return total;
+            
+            switch (chunk.type) {
+                case 'h1':
+                    return total + silenceSettings.h1;
+                case 'h2':
+                    return total + silenceSettings.h2;
+                case 'paragraph':
+                    return total + silenceSettings.paragraph;
+                case 'chapter_end':
+                    return total + silenceSettings.chapterEnd;
+                default:
+                    return total;
+            }
+        }, 0);
+    }
+
+    /**
+     * Validate silence settings
+     * @param {Object} settings - Silence settings to validate
+     * @returns {Object} Validation result
+     */
+    static validateSilenceSettings(settings) {
+        const maxSilence = 10; // Maximum 10 seconds of silence
+        const errors = [];
+
+        Object.entries(settings).forEach(([key, value]) => {
+            if (value < 0) {
+                errors.push(`${key} silence cannot be negative`);
+            }
+            if (value > maxSilence) {
+                errors.push(`${key} silence cannot exceed ${maxSilence} seconds`);
+            }
+        });
+
+        return {
+            valid: errors.length === 0,
+            errors
+        };
     }
 }

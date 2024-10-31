@@ -10,7 +10,7 @@ import { SilenceGenerator } from './audio/silence.js';
 import { PreviewManager } from './ui/preview.js';
 import { ProgressManager } from './ui/progress.js';
 import { StateManager } from './utils/storage.js';
-import { splitTextIntoChunks } from './utils/text.js';
+import { splitTextIntoChunks, validateChunks } from './utils/text.js';
 
 class VoiceBox {
     constructor() {
@@ -34,11 +34,12 @@ class VoiceBox {
             voice: document.getElementById(CONFIG.ELEMENTS.voice),
             format: document.getElementById(CONFIG.ELEMENTS.format),
             text: document.getElementById(CONFIG.ELEMENTS.text),
-            maxChars: document.getElementById(CONFIG.ELEMENTS.maxChars),
-            preSilence: document.getElementById(CONFIG.ELEMENTS.preSilence),
-            postSilence: document.getElementById(CONFIG.ELEMENTS.postSilence),
             generateBtn: document.getElementById(CONFIG.ELEMENTS.generateBtn),
-            downloadBtn: document.getElementById(CONFIG.ELEMENTS.downloadBtn)
+            downloadBtn: document.getElementById(CONFIG.ELEMENTS.downloadBtn),
+            h1Silence: document.getElementById(CONFIG.ELEMENTS.h1Silence),
+            h2Silence: document.getElementById(CONFIG.ELEMENTS.h2Silence),
+            paragraphSilence: document.getElementById(CONFIG.ELEMENTS.paragraphSilence),
+            chapterEndSilence: document.getElementById(CONFIG.ELEMENTS.chapterEndSilence)
         };
 
         this.processedChunks = [];
@@ -55,9 +56,8 @@ class VoiceBox {
         // Download button
         this.elements.downloadBtn.addEventListener('click', () => this.downloadAudio());
         
-        // Text and max chars input
+        // Text input
         this.elements.text.addEventListener('input', () => this.handleTextChange());
-        this.elements.maxChars.addEventListener('input', () => this.handleTextChange());
         
         // Save state on input changes
         Object.keys(this.elements).forEach(key => {
@@ -73,11 +73,22 @@ class VoiceBox {
      */
     loadSavedState() {
         const state = StateManager.loadState();
+        
+        // Load basic settings
         Object.entries(state).forEach(([key, value]) => {
-            if (this.elements[key]) {
+            if (this.elements[key] && key !== 'silenceSettings') {
                 this.elements[key].value = value;
             }
         });
+
+        // Load silence settings
+        if (state.silenceSettings) {
+            this.elements.h1Silence.value = state.silenceSettings.h1;
+            this.elements.h2Silence.value = state.silenceSettings.h2;
+            this.elements.paragraphSilence.value = state.silenceSettings.paragraph;
+            this.elements.chapterEndSilence.value = state.silenceSettings.chapterEnd;
+        }
+
         this.handleTextChange();
     }
 
@@ -85,24 +96,42 @@ class VoiceBox {
      * Save current state
      */
     saveState() {
-        const state = {};
-        Object.entries(this.elements).forEach(([key, element]) => {
-            if (element && element.value !== undefined) {
-                state[key] = element.value;
+        const state = {
+            apiKey: this.elements.apiKey.value,
+            model: this.elements.model.value,
+            voice: this.elements.voice.value,
+            format: this.elements.format.value,
+            text: this.elements.text.value,
+            silenceSettings: {
+                h1: parseFloat(this.elements.h1Silence.value),
+                h2: parseFloat(this.elements.h2Silence.value),
+                paragraph: parseFloat(this.elements.paragraphSilence.value),
+                chapterEnd: parseFloat(this.elements.chapterEndSilence.value)
             }
-        });
+        };
         StateManager.saveState(state);
     }
 
     /**
-     * Handle text or max characters change
+     * Handle text change
      */
     handleTextChange() {
         const text = this.elements.text.value;
-        const maxChars = parseInt(this.elements.maxChars.value);
-        this.previewManager.updatePreviewIfVisible(text, maxChars);
-        const chunks = splitTextIntoChunks(text, maxChars);
+        const chunks = splitTextIntoChunks(text);
+        this.previewManager.updatePreviewIfVisible(text);
         this.previewManager.updateChunkCount(chunks.length);
+    }
+
+    /**
+     * Get current silence settings
+     */
+    getSilenceSettings() {
+        return {
+            h1: parseFloat(this.elements.h1Silence.value),
+            h2: parseFloat(this.elements.h2Silence.value),
+            paragraph: parseFloat(this.elements.paragraphSilence.value),
+            chapterEnd: parseFloat(this.elements.chapterEndSilence.value)
+        };
     }
 
     /**
@@ -116,21 +145,26 @@ class VoiceBox {
 
         try {
             const text = this.elements.text.value;
-            const maxChars = parseInt(this.elements.maxChars.value);
-            const chunks = splitTextIntoChunks(text, maxChars);
-            const format = this.elements.format.value;
+            const chunks = splitTextIntoChunks(text);
+            const validation = validateChunks(chunks);
             
-            // Add pre-silence if needed
-            const preSilence = parseFloat(this.elements.preSilence.value);
-            if (preSilence > 0) {
-                const silenceBlob = await SilenceGenerator.generateSilence(preSilence, format);
-                this.processedChunks.push(silenceBlob);
+            if (!validation.valid) {
+                throw new Error(validation.message);
             }
 
+            const format = this.elements.format.value;
+            const silenceSettings = this.getSilenceSettings();
+            
             // Process each chunk
             const tracker = this.progressManager.createProgressTracker(chunks.length);
             for (let i = 0; i < chunks.length; i++) {
-                const audioBlob = await TTSApi.generateSpeech(chunks[i], {
+                // Skip empty chunks (like chapter end markers)
+                if (!chunks[i].content && chunks[i].type === 'chapter_end') {
+                    tracker.increment();
+                    continue;
+                }
+
+                const audioBlob = await TTSApi.generateSpeech(chunks[i].content, {
                     apiKey: this.elements.apiKey.value,
                     model: this.elements.model.value,
                     voice: this.elements.voice.value,
@@ -140,15 +174,16 @@ class VoiceBox {
                 tracker.increment();
             }
 
-            // Add post-silence if needed
-            const postSilence = parseFloat(this.elements.postSilence.value);
-            if (postSilence > 0) {
-                const silenceBlob = await SilenceGenerator.generateSilence(postSilence, format);
-                this.processedChunks.push(silenceBlob);
-            }
+            // Add silence between chunks
+            const processedWithSilence = await SilenceGenerator.addChunkSilence(
+                this.processedChunks,
+                chunks,
+                silenceSettings,
+                format
+            );
 
-            // Combine all audio chunks
-            this.audioBlob = await AudioProcessor.combineAudioBlobs(this.processedChunks, format);
+            // Combine all audio
+            this.audioBlob = await AudioProcessor.combineAudioBlobs(processedWithSilence, format);
             
             // Set up audio player
             const audioUrl = URL.createObjectURL(this.audioBlob);
@@ -177,6 +212,13 @@ class VoiceBox {
             alert('Please enter your OpenAI API key');
             return false;
         }
+
+        const silenceValidation = SilenceGenerator.validateSilenceSettings(this.getSilenceSettings());
+        if (!silenceValidation.valid) {
+            alert(silenceValidation.errors.join('\n'));
+            return false;
+        }
+
         return true;
     }
 
