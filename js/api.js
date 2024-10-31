@@ -16,26 +16,35 @@ export class TTSApi {
      * @returns {Promise<Blob>} - Audio blob
      */
     static async generateSpeech(text, { apiKey, model, voice, format }) {
-        const response = await fetch(CONFIG.API_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: model || CONFIG.DEFAULT_MODEL,
-                input: text,
-                voice: voice || CONFIG.DEFAULT_VOICE,
-                response_format: format || CONFIG.DEFAULT_FORMAT
-            })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || 'Failed to generate speech');
+        if (!text || !text.trim()) {
+            throw new Error('Text cannot be empty');
         }
 
-        return await response.blob();
+        try {
+            const response = await fetch(CONFIG.API_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: model || CONFIG.DEFAULT_MODEL,
+                    input: text.trim(),
+                    voice: voice || CONFIG.DEFAULT_VOICE,
+                    response_format: format || CONFIG.DEFAULT_FORMAT
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || `API Error: ${response.status} ${response.statusText}`);
+            }
+
+            return await response.blob();
+        } catch (error) {
+            console.error('TTS API Error:', error);
+            throw new Error(`Failed to generate speech: ${error.message}`);
+        }
     }
 
     /**
@@ -53,6 +62,7 @@ export class TTSApi {
             });
             return true;
         } catch (error) {
+            console.error('API Key Validation Error:', error);
             return false;
         }
     }

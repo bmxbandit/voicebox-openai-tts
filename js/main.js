@@ -157,33 +157,58 @@ class VoiceBox {
             
             // Process each chunk
             const tracker = this.progressManager.createProgressTracker(chunks.length);
+            
             for (let i = 0; i < chunks.length; i++) {
-                // Skip empty chunks (like chapter end markers)
-                if (!chunks[i].content && chunks[i].type === 'chapter_end') {
-                    tracker.increment();
+                const chunk = chunks[i];
+                tracker.increment();
+
+                // Skip empty chunks and chapter end markers
+                if (!chunk.content.trim()) {
+                    if (chunk.type === 'chapter_end' && i < chunks.length - 1) {
+                        const silenceBlob = await SilenceGenerator.generateChunkSilence(
+                            'chapter_end',
+                            silenceSettings,
+                            format
+                        );
+                        if (silenceBlob) {
+                            this.processedChunks.push(silenceBlob);
+                        }
+                    }
                     continue;
                 }
 
-                const audioBlob = await TTSApi.generateSpeech(chunks[i].content, {
-                    apiKey: this.elements.apiKey.value,
-                    model: this.elements.model.value,
-                    voice: this.elements.voice.value,
-                    format: format
-                });
-                this.processedChunks.push(audioBlob);
-                tracker.increment();
+                try {
+                    const audioBlob = await TTSApi.generateSpeech(chunk.content, {
+                        apiKey: this.elements.apiKey.value,
+                        model: this.elements.model.value,
+                        voice: this.elements.voice.value,
+                        format: format
+                    });
+                    this.processedChunks.push(audioBlob);
+
+                    // Add silence after chunk if needed
+                    if (i < chunks.length - 1) {
+                        const silenceBlob = await SilenceGenerator.generateChunkSilence(
+                            chunk.type,
+                            silenceSettings,
+                            format
+                        );
+                        if (silenceBlob) {
+                            this.processedChunks.push(silenceBlob);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error processing chunk ${i + 1}:`, error);
+                    throw new Error(`Failed to process chunk ${i + 1}: ${error.message}`);
+                }
             }
 
-            // Add silence between chunks
-            const processedWithSilence = await SilenceGenerator.addChunkSilence(
-                this.processedChunks,
-                chunks,
-                silenceSettings,
-                format
-            );
+            if (this.processedChunks.length === 0) {
+                throw new Error('No audio was generated. Please check your input text.');
+            }
 
             // Combine all audio
-            this.audioBlob = await AudioProcessor.combineAudioBlobs(processedWithSilence, format);
+            this.audioBlob = await AudioProcessor.combineAudioBlobs(this.processedChunks, format);
             
             // Set up audio player
             const audioUrl = URL.createObjectURL(this.audioBlob);
@@ -193,6 +218,7 @@ class VoiceBox {
             // Auto-play the generated audio
             this.audioPlayer.play();
         } catch (error) {
+            console.error('Speech generation error:', error);
             this.progressManager.showError(error.message);
         } finally {
             this.progressManager.hideProgress();

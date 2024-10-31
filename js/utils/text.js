@@ -19,70 +19,83 @@ import { CONFIG } from '../config.js';
  * @returns {Array<TextChunk>} Array of text chunks
  */
 export function splitTextIntoChunks(text) {
+    if (!text || !text.trim()) {
+        return [];
+    }
+
     const chunks = [];
     const lines = text.split('\n');
     let currentChunk = '';
     let currentType = 'paragraph';
 
+    function addChunk(content, type) {
+        const trimmedContent = content.trim();
+        if (trimmedContent || type === 'chapter_end') {
+            chunks.push(createChunk(trimmedContent, type));
+        }
+    }
+
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmedLine = line.trim();
+        const line = lines[i].trim();
 
         // Check for chapter end marker
-        if (trimmedLine === CONFIG.TEXT_MARKERS.CHAPTER_END) {
+        if (line === CONFIG.TEXT_MARKERS.CHAPTER_END) {
             if (currentChunk) {
-                chunks.push(createChunk(currentChunk, currentType));
+                addChunk(currentChunk, currentType);
                 currentChunk = '';
             }
-            chunks.push(createChunk('', 'chapter_end'));
+            addChunk('', 'chapter_end');
             continue;
         }
 
         // Check for headings
-        if (trimmedLine.startsWith(CONFIG.TEXT_MARKERS.H1)) {
+        if (line.startsWith(CONFIG.TEXT_MARKERS.H1)) {
             if (currentChunk) {
-                chunks.push(createChunk(currentChunk, currentType));
+                addChunk(currentChunk, currentType);
             }
-            currentChunk = trimmedLine.substring(CONFIG.TEXT_MARKERS.H1.length);
+            currentChunk = line.substring(CONFIG.TEXT_MARKERS.H1.length);
             currentType = 'h1';
             continue;
         }
 
-        if (trimmedLine.startsWith(CONFIG.TEXT_MARKERS.H2)) {
+        if (line.startsWith(CONFIG.TEXT_MARKERS.H2)) {
             if (currentChunk) {
-                chunks.push(createChunk(currentChunk, currentType));
+                addChunk(currentChunk, currentType);
             }
-            currentChunk = trimmedLine.substring(CONFIG.TEXT_MARKERS.H2.length);
+            currentChunk = line.substring(CONFIG.TEXT_MARKERS.H2.length);
             currentType = 'h2';
             continue;
         }
 
         // Handle paragraphs
         if (currentType === 'h1' || currentType === 'h2') {
-            if (trimmedLine) {
-                chunks.push(createChunk(currentChunk, currentType));
-                currentChunk = trimmedLine;
+            if (line) {
+                addChunk(currentChunk, currentType);
+                currentChunk = line;
                 currentType = 'paragraph';
             }
         } else {
             // If empty line and we have content, start new paragraph
-            if (!trimmedLine && currentChunk) {
-                chunks.push(createChunk(currentChunk, currentType));
+            if (!line && currentChunk) {
+                addChunk(currentChunk, currentType);
                 currentChunk = '';
-            } else if (trimmedLine) {
+            } else if (line) {
                 currentChunk = currentChunk 
-                    ? `${currentChunk}\n${trimmedLine}`
-                    : trimmedLine;
+                    ? `${currentChunk}\n${line}`
+                    : line;
             }
         }
     }
 
     // Add remaining chunk if any
     if (currentChunk) {
-        chunks.push(createChunk(currentChunk, currentType));
+        addChunk(currentChunk, currentType);
     }
 
-    return chunks;
+    return chunks.filter(chunk => {
+        // Keep non-empty chunks and chapter end markers
+        return chunk.type === 'chapter_end' || chunk.content.trim().length > 0;
+    });
 }
 
 /**
@@ -97,7 +110,7 @@ function createChunk(content, type) {
         type,
         content: trimmedContent,
         length: trimmedContent.length,
-        isValid: trimmedContent.length <= CONFIG.MAX_CHARS
+        isValid: type === 'chapter_end' || (trimmedContent.length > 0 && trimmedContent.length <= CONFIG.MAX_CHARS)
     };
 }
 
@@ -126,16 +139,18 @@ export function generateChunkPreviewHtml(chunks, silenceSettings) {
         return `
             <div class="card mb-2">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <span>${getChunkTypeLabel(chunk.type)} (${chunk.length} characters)</span>
-                    ${!chunk.isValid ? `
+                    <span>${getChunkTypeLabel(chunk.type)} ${chunk.type !== 'chapter_end' ? `(${chunk.length} characters)` : ''}</span>
+                    ${!chunk.isValid && chunk.type !== 'chapter_end' ? `
                         <span class="text-danger">
                             <i class="bi ${CONFIG.PREVIEW_STYLES.WARNING.icon}"></i> Exceeds ${CONFIG.MAX_CHARS} character limit
                         </span>
                     ` : ''}
                 </div>
-                <div class="card-body">
-                    <pre class="mb-0" ${styleString}>${chunk.content}</pre>
-                </div>
+                ${chunk.content ? `
+                    <div class="card-body">
+                        <pre class="mb-0" ${styleString}>${chunk.content}</pre>
+                    </div>
+                ` : ''}
                 ${!isLast && silenceDuration > 0 ? `
                     <div class="card-footer bg-light text-center" style="color:${CONFIG.PREVIEW_STYLES.SILENCE_INDICATOR.color};font-size:${CONFIG.PREVIEW_STYLES.SILENCE_INDICATOR.fontSize}">
                         <i class="bi bi-arrow-down"></i>
