@@ -17,33 +17,68 @@ export class TTSApi {
      */
     static async generateSpeech(text, { apiKey, model, voice, format }) {
         if (!text || !text.trim()) {
-            throw new Error('Text cannot be empty');
+            throw new Error(CONFIG.ERRORS.TEXT_EMPTY);
         }
+
+        if (!apiKey) {
+            throw new Error(CONFIG.ERRORS.API_KEY_MISSING);
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => {
+            controller.abort();
+        }, CONFIG.REQUEST_OPTIONS.timeout);
 
         try {
             const response = await fetch(CONFIG.API_ENDPOINT, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': '*/*'
                 },
                 body: JSON.stringify({
                     model: model || CONFIG.DEFAULT_MODEL,
                     input: text.trim(),
                     voice: voice || CONFIG.DEFAULT_VOICE,
                     response_format: format || CONFIG.DEFAULT_FORMAT
-                })
+                }),
+                signal: controller.signal
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error?.message || `API Error: ${response.status} ${response.statusText}`);
+                let errorMessage;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error?.message || `${CONFIG.ERRORS.API_ERROR}${response.status} ${response.statusText}`;
+                } catch {
+                    errorMessage = `${CONFIG.ERRORS.API_ERROR}${response.status} ${response.statusText}`;
+                }
+                throw new Error(errorMessage);
+            }
+
+            // Check if the response is valid
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('audio/')) {
+                console.error('Invalid content type:', contentType);
+                throw new Error(CONFIG.ERRORS.INVALID_RESPONSE);
             }
 
             return await response.blob();
         } catch (error) {
             console.error('TTS API Error:', error);
-            throw new Error(`Failed to generate speech: ${error.message}`);
+
+            // Handle specific error types
+            if (error.name === 'AbortError') {
+                throw new Error('Request timed out. Please try again.');
+            }
+            if (error.message.includes('Failed to fetch')) {
+                throw new Error(CONFIG.ERRORS.NETWORK_ERROR);
+            }
+
+            throw error;
+        } finally {
+            clearTimeout(timeout);
         }
     }
 
@@ -53,7 +88,10 @@ export class TTSApi {
      * @returns {Promise<boolean>} - Whether the API key is valid
      */
     static async validateApiKey(apiKey) {
+        if (!apiKey) return false;
+
         try {
+            // Make a minimal request to validate the API key
             await this.generateSpeech('Test.', {
                 apiKey,
                 model: CONFIG.DEFAULT_MODEL,
@@ -73,5 +111,23 @@ export class TTSApi {
      */
     static getSupportedFormats() {
         return CONFIG.FORMATS;
+    }
+
+    /**
+     * Check if a format is supported
+     * @param {string} format - Format to check
+     * @returns {boolean} - Whether the format is supported
+     */
+    static isFormatSupported(format) {
+        return format in CONFIG.FORMATS;
+    }
+
+    /**
+     * Get the MIME type for a format
+     * @param {string} format - Format to get MIME type for
+     * @returns {string} - MIME type
+     */
+    static getFormatMimeType(format) {
+        return CONFIG.FORMATS[format]?.mimeType || 'application/octet-stream';
     }
 }

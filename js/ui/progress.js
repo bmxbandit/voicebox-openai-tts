@@ -11,20 +11,25 @@ export class ProgressManager {
         this.totalChunksSpan = document.getElementById(CONFIG.ELEMENTS.totalChunks);
         this.generateBtn = document.getElementById(CONFIG.ELEMENTS.generateBtn);
         this.progressBar = document.querySelector('#processingProgress .progress-bar');
+        
+        this.isProcessing = false;
     }
 
     /**
      * Show processing progress indicators
      */
     showProgress() {
+        this.isProcessing = true;
         this.processingProgress.style.display = 'block';
         this.setGenerateButtonLoading(true);
+        this.updateChunkProgress(0, 0);
     }
 
     /**
      * Hide processing progress indicators
      */
     hideProgress() {
+        this.isProcessing = false;
         this.processingProgress.style.display = 'none';
         this.setGenerateButtonLoading(false);
     }
@@ -38,8 +43,13 @@ export class ProgressManager {
         this.currentChunkSpan.textContent = current;
         this.totalChunksSpan.textContent = total;
         
-        const percentage = (current / total) * 100;
+        const percentage = total > 0 ? (current / total) * 100 : 0;
         this.progressBar.style.width = `${percentage}%`;
+        
+        // Update generate button text
+        if (this.isProcessing) {
+            this.generateBtn.innerHTML = `<i class="bi bi-hourglass-split"></i> Processing ${current}/${total}`;
+        }
     }
 
     /**
@@ -48,9 +58,9 @@ export class ProgressManager {
      */
     setGenerateButtonLoading(isLoading) {
         this.generateBtn.disabled = isLoading;
-        this.generateBtn.innerHTML = isLoading 
-            ? '<i class="bi bi-hourglass-split"></i> Generating...'
-            : '<i class="bi bi-mic-fill"></i> Generate';
+        if (!isLoading) {
+            this.generateBtn.innerHTML = '<i class="bi bi-mic-fill"></i> Generate';
+        }
     }
 
     /**
@@ -58,8 +68,49 @@ export class ProgressManager {
      * @param {string} message - Error message to display
      */
     showError(message) {
-        alert(message); // Could be enhanced with a better UI for error messages
+        // Create error alert
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
+        alertDiv.innerHTML = `
+            <i class="bi ${CONFIG.PREVIEW_STYLES.WARNING.icon}"></i>
+            <strong>Error:</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        // Insert after the progress bar
+        this.processingProgress.parentNode.insertBefore(alertDiv, this.processingProgress.nextSibling);
+
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            alertDiv.classList.remove('show');
+            setTimeout(() => alertDiv.remove(), 150);
+        }, 5000);
+
         this.hideProgress();
+    }
+
+    /**
+     * Show success message
+     * @param {string} message - Success message to display
+     */
+    showSuccess(message) {
+        // Create success alert
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-success alert-dismissible fade show mt-3';
+        alertDiv.innerHTML = `
+            <i class="bi bi-check-circle-fill"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        // Insert after the progress bar
+        this.processingProgress.parentNode.insertBefore(alertDiv, this.processingProgress.nextSibling);
+
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+            alertDiv.classList.remove('show');
+            setTimeout(() => alertDiv.remove(), 150);
+        }, 3000);
     }
 
     /**
@@ -104,7 +155,16 @@ export class ProgressManager {
                 current: currentStep,
                 total: totalSteps,
                 percentage: (currentStep / totalSteps) * 100
-            })
+            }),
+
+            /**
+             * Update total steps
+             * @param {number} newTotal - New total number of steps
+             */
+            updateTotal: (newTotal) => {
+                totalSteps = newTotal;
+                this.updateChunkProgress(currentStep, totalSteps);
+            }
         };
     }
 }

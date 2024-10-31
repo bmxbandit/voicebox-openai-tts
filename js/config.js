@@ -5,6 +5,7 @@
 export const CONFIG = {
     // API Configuration
     API_ENDPOINT: 'https://api.openai.com/v1/audio/speech',
+    API_VERSION: '1.0.0',
     DEFAULT_MODEL: 'tts-1',
     DEFAULT_VOICE: 'alloy',
     DEFAULT_FORMAT: 'mp3',
@@ -27,6 +28,19 @@ export const CONFIG = {
         H2: 1.5,
         PARAGRAPH: 1.0,
         CHAPTER_END: 3.0
+    },
+    
+    // Error Messages
+    ERRORS: {
+        API_KEY_MISSING: 'Please enter your OpenAI API key',
+        TEXT_EMPTY: 'Please enter text to convert to speech',
+        API_ERROR: 'API Error: ',
+        NETWORK_ERROR: 'Network error. Please check your internet connection.',
+        INVALID_RESPONSE: 'Invalid response from API',
+        MAX_CHARS_EXCEEDED: 'Text exceeds maximum character limit',
+        INVALID_FORMAT: 'Invalid audio format specified',
+        PROCESSING_ERROR: 'Error processing audio',
+        SILENCE_INVALID: 'Invalid silence duration'
     },
     
     // Storage Keys
@@ -66,15 +80,11 @@ export const CONFIG = {
         totalChunks: 'totalChunks',
         chunkCount: 'chunkCount',
 
-        // New elements for silence controls
+        // Silence control elements
         h1Silence: 'h1Silence',
         h2Silence: 'h2Silence',
         paragraphSilence: 'paragraphSilence',
-        chapterEndSilence: 'chapterEndSilence',
-        
-        // Guide elements
-        textGuide: 'textGuide',
-        textExample: 'textExample'
+        chapterEndSilence: 'chapterEndSilence'
     },
     
     // Preview Styles
@@ -96,6 +106,15 @@ export const CONFIG = {
         SILENCE_INDICATOR: {
             color: '#95a5a6',
             fontSize: '0.875rem'
+        }
+    },
+
+    // API Request Options
+    REQUEST_OPTIONS: {
+        timeout: 30000, // 30 seconds timeout
+        retries: 1,     // Number of retries for failed requests
+        headers: {
+            'Content-Type': 'application/json'
         }
     }
 };
