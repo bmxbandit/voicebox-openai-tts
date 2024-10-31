@@ -1,0 +1,86 @@
+/* General Styles */
+body {
+    background-color: #f8f9fa;
+}
+
+/* Audio Player Styles */
+.audio-player {
+    width: 100%;
+    padding: 1rem;
+    background: #fff;
+    border-radius: 0.5rem;
+}
+
+.timeline {
+    width: 100%;
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.progress-bar {
+    height: 100%;
+    background: #0d6efd;
+    border-radius: 4px;
+    transition: width 0.1s;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.controls button {
+    padding: 0.5rem;
+    font-size: 1.25rem;
+}
+
+/* Preview Styles */
+#chunkPreview {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.chunk-item {
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    background-color: #fff;
+}
+
+.chunk-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Progress Styles */
+.progress {
+    height: 1.5rem;
+}
+
+#progressStatus {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+/* Form Controls */
+.form-control:focus, .form-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .controls {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .timeline {
+        margin-bottom: 1.5rem;
+    }
+}
