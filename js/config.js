@@ -47,13 +47,44 @@ export const CONFIG = {
     STORAGE_KEY: 'voiceBoxState',
     
     // Supported Formats
+    // Note: These must match OpenAI's API format names exactly
     FORMATS: {
-        wav: { mimeType: 'audio/wav', extension: 'wav', description: 'WAV' },
-        mp3: { mimeType: 'audio/mp3', extension: 'mp3', description: 'MP3' },
-        aac: { mimeType: 'audio/aac', extension: 'aac', description: 'AAC' },
-        flac: { mimeType: 'audio/flac', extension: 'flac', description: 'FLAC' },
-        opus: { mimeType: 'audio/opus', extension: 'opus', description: 'Opus' },
-        pcm: { mimeType: 'audio/pcm', extension: 'pcm', description: 'PCM' }
+        mp3: { 
+            mimeType: 'audio/mpeg', 
+            extension: 'mp3', 
+            description: 'MP3',
+            apiFormat: 'mp3'
+        },
+        opus: { 
+            mimeType: 'audio/opus', 
+            extension: 'opus', 
+            description: 'Opus',
+            apiFormat: 'opus'
+        },
+        aac: { 
+            mimeType: 'audio/aac', 
+            extension: 'aac', 
+            description: 'AAC',
+            apiFormat: 'aac'
+        },
+        flac: { 
+            mimeType: 'audio/flac', 
+            extension: 'flac', 
+            description: 'FLAC',
+            apiFormat: 'flac'
+        },
+        wav: { 
+            mimeType: 'audio/wav', 
+            extension: 'wav', 
+            description: 'WAV',
+            apiFormat: 'wav'  // Ensure this matches OpenAI's format name
+        },
+        pcm: { 
+            mimeType: 'audio/pcm', 
+            extension: 'pcm', 
+            description: 'PCM',
+            apiFormat: 'pcm'
+        }
     },
     
     // UI Elements
@@ -116,5 +147,16 @@ export const CONFIG = {
         headers: {
             'Content-Type': 'application/json'
         }
+    },
+
+    // Expected Response Types
+    RESPONSE_TYPES: {
+        mp3: 'audio/mpeg',
+        opus: 'audio/opus',
+        aac: 'audio/aac',
+        flac: 'audio/flac',
+        wav: 'audio/wav',
+        pcm: 'audio/pcm',
+        fallback: 'application/octet-stream'
     }
 };

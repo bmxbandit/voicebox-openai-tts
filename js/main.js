@@ -3,10 +3,8 @@
  */
 
 import { CONFIG } from './config.js';
-import { TTSApi } from './api.js';
 import { AudioPlayer } from './audio/player.js';
-import { AudioProcessor } from './audio/processor.js';
-import { SilenceGenerator } from './audio/silence.js';
+import { SpeechGenerator } from './audio/generator.js';
 import { PreviewManager } from './ui/preview.js';
 import { ProgressManager } from './ui/progress.js';
 import { StateManager } from './utils/storage.js';
@@ -17,6 +15,7 @@ class VoiceBox {
         this.initializeComponents();
         this.initializeEventListeners();
         this.loadSavedState();
+        this.isProcessing = false;
     }
 
     /**
@@ -102,12 +101,7 @@ class VoiceBox {
             voice: this.elements.voice.value,
             format: this.elements.format.value,
             text: this.elements.text.value,
-            silenceSettings: {
-                h1: parseFloat(this.elements.h1Silence.value),
-                h2: parseFloat(this.elements.h2Silence.value),
-                paragraph: parseFloat(this.elements.paragraphSilence.value),
-                chapterEnd: parseFloat(this.elements.chapterEndSilence.value)
-            }
+            silenceSettings: this.getSilenceSettings()
         };
         StateManager.saveState(state);
     }
@@ -138,10 +132,15 @@ class VoiceBox {
      * Generate speech from text
      */
     async generateSpeech() {
+        if (this.isProcessing) {
+            console.log('Already processing, please wait...');
+            return;
+        }
+
         if (!this.validateInput()) return;
 
+        this.isProcessing = true;
         this.progressManager.showProgress();
-        this.processedChunks = [];
 
         try {
             const text = this.elements.text.value;
@@ -152,63 +151,21 @@ class VoiceBox {
                 throw new Error(validation.message);
             }
 
-            const format = this.elements.format.value;
-            const silenceSettings = this.getSilenceSettings();
-            
-            // Process each chunk
-            const tracker = this.progressManager.createProgressTracker(chunks.length);
-            
-            for (let i = 0; i < chunks.length; i++) {
-                const chunk = chunks[i];
-                tracker.increment();
+            // Prepare generation options
+            const options = {
+                apiKey: this.elements.apiKey.value,
+                model: this.elements.model.value,
+                voice: this.elements.voice.value,
+                format: this.elements.format.value,
+                silenceSettings: this.getSilenceSettings()
+            };
 
-                // Skip empty chunks and chapter end markers
-                if (!chunk.content.trim()) {
-                    if (chunk.type === 'chapter_end' && i < chunks.length - 1) {
-                        const silenceBlob = await SilenceGenerator.generateChunkSilence(
-                            'chapter_end',
-                            silenceSettings,
-                            format
-                        );
-                        if (silenceBlob) {
-                            this.processedChunks.push(silenceBlob);
-                        }
-                    }
-                    continue;
-                }
-
-                try {
-                    const audioBlob = await TTSApi.generateSpeech(chunk.content, {
-                        apiKey: this.elements.apiKey.value,
-                        model: this.elements.model.value,
-                        voice: this.elements.voice.value,
-                        format: format
-                    });
-                    this.processedChunks.push(audioBlob);
-
-                    // Add silence after chunk if needed
-                    if (i < chunks.length - 1) {
-                        const silenceBlob = await SilenceGenerator.generateChunkSilence(
-                            chunk.type,
-                            silenceSettings,
-                            format
-                        );
-                        if (silenceBlob) {
-                            this.processedChunks.push(silenceBlob);
-                        }
-                    }
-                } catch (error) {
-                    console.error(`Error processing chunk ${i + 1}:`, error);
-                    throw new Error(`Failed to process chunk ${i + 1}: ${error.message}`);
-                }
-            }
-
-            if (this.processedChunks.length === 0) {
-                throw new Error('No audio was generated. Please check your input text.');
-            }
-
-            // Combine all audio
-            this.audioBlob = await AudioProcessor.combineAudioBlobs(this.processedChunks, format);
+            // Generate speech with progress tracking
+            this.audioBlob = await SpeechGenerator.generateSpeechFromChunks(
+                chunks,
+                options,
+                (current, total) => this.progressManager.updateChunkProgress(current, total)
+            );
             
             // Set up audio player
             const audioUrl = URL.createObjectURL(this.audioBlob);
@@ -217,33 +174,38 @@ class VoiceBox {
             
             // Auto-play the generated audio
             this.audioPlayer.play();
+            
+            // Show success message
+            this.progressManager.showSuccess('Audio generated successfully!');
         } catch (error) {
             console.error('Speech generation error:', error);
             this.progressManager.showError(error.message);
         } finally {
+            this.isProcessing = false;
             this.progressManager.hideProgress();
         }
     }
 
     /**
      * Validate input before processing
-     * @returns {boolean} Whether input is valid
      */
     validateInput() {
         if (!this.elements.text.value.trim()) {
-            alert('Please enter text to convert to speech');
+            this.progressManager.showError(CONFIG.ERRORS.TEXT_EMPTY);
             return false;
         }
         if (!this.elements.apiKey.value) {
-            alert('Please enter your OpenAI API key');
+            this.progressManager.showError(CONFIG.ERRORS.API_KEY_MISSING);
             return false;
         }
 
-        const silenceValidation = SilenceGenerator.validateSilenceSettings(this.getSilenceSettings());
-        if (!silenceValidation.valid) {
-            alert(silenceValidation.errors.join('\n'));
-            return false;
-        }
+        const silenceSettings = this.getSilenceSettings();
+        Object.entries(silenceSettings).forEach(([key, value]) => {
+            if (value < 0 || value > 10) {
+                this.progressManager.showError(`${key} silence must be between 0 and 10 seconds`);
+                return false;
+            }
+        });
 
         return true;
     }
