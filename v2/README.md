@@ -6,7 +6,7 @@ A streamlined web-based text-to-speech application powered by OpenAI's TTS API. 
 
 - **Multiple Voice Options**: Alloy, Echo, Fable, Onyx, Nova, Shimmer
 - **Flexible Model Selection**: Standard (tts-1) and High Quality (tts-1-hd)
-- **Multiple Audio Formats**: MP3, Opus, AAC, FLAC, PCM
+- **Multiple Audio Formats**: MP3, Opus, AAC, FLAC, PCM, WAV
 - **Smart Text Processing**:
   - Intelligent paragraph-based chunking
   - Respects maximum character limits
@@ -24,6 +24,11 @@ A streamlined web-based text-to-speech application powered by OpenAI's TTS API. 
   - Real-time processing status
   - Visual chunk preview
   - Progress indicators
+- **Complete State Persistence**:
+  - Auto-save text input with debouncing
+  - Preserve all settings and configurations
+  - Restore exact last state on reload
+  - Secure API key storage
 
 ## Project Structure
 
@@ -71,6 +76,8 @@ v2/
    - Persistent settings
    - Secure API key storage
    - User preference management
+   - Auto-save functionality
+   - Complete state restoration
 
 ## Usage
 
@@ -90,6 +97,7 @@ v2/
 - API key is stored locally and never transmitted except to OpenAI
 - No server-side storage or processing
 - All processing happens in the browser
+- Secure local storage with automatic state management
 
 ## Browser Support
 
@@ -118,6 +126,12 @@ The v2 codebase is designed for easy extension and modification:
    - Uses Bootstrap for layout
    - Custom styles for audio player
 
+4. **State Management**:
+   - StorageManager handles all persistence
+   - UIManager manages state updates
+   - Automatic state synchronization
+   - Debounced saving for performance
+
 ## Future Improvements
 
 1. Support for more audio formats
@@ -125,3 +139,7 @@ The v2 codebase is designed for easy extension and modification:
 3. Batch processing capabilities
 4. Custom voice fine-tuning
 5. Enhanced audio editing features
+6. Advanced state management features:
+   - Multiple saved states
+   - State export/import
+   - Cloud synchronization options
