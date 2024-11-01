@@ -63,42 +63,26 @@
             </div>
         </div>
 
-        <!-- Silence Settings -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Silence Settings</h5>
-            </div>
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label for="h1Silence" class="form-label">H1 Tag Silence (s)</label>
-                        <div class="input-group">
-                            <input type="number" class="form-control" id="h1Silence" value="2" step="0.1">
-                            <span class="input-group-text text-muted">Use: # Title</span>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="h2Silence" class="form-label">H2 Tag Silence (s)</label>
-                        <div class="input-group">
-                            <input type="number" class="form-control" id="h2Silence" value="1.5" step="0.1">
-                            <span class="input-group-text text-muted">Use: ## Subtitle</span>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="chapterEndSilence" class="form-label">Chapter End Silence (s)</label>
-                        <div class="input-group">
-                            <input type="number" class="form-control" id="chapterEndSilence" value="3" step="0.1">
-                            <span class="input-group-text text-muted">Use: ###</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Text Input Section -->
         <div class="card mb-4">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Text Input</h5>
+                <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#silenceHelp">
+                    Show Silence Instructions
+                </button>
+            </div>
+            <div class="collapse" id="silenceHelp">
+                <div class="card-body bg-light border-bottom">
+                    <h6>Adding Silence</h6>
+                    <p class="mb-2">To add silence in your text, use the following syntax on a new line:</p>
+                    <pre class="bg-white p-2 rounded"><code>{{seconds}}</code></pre>
+                    <p class="mb-2">Examples:</p>
+                    <ul class="mb-0">
+                        <li><code>{{2.5}}</code> - adds 2.5 seconds of silence</li>
+                        <li><code>{{1}}</code> - adds 1 second of silence</li>
+                        <li><code>{{0.5}}</code> - adds half a second of silence</li>
+                    </ul>
+                </div>
             </div>
             <div class="card-body">
                 <textarea class="form-control mb-3" id="inputText" rows="10" placeholder="Enter your text here..."></textarea>

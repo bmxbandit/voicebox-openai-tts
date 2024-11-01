@@ -5,58 +5,40 @@ export class TextProcessor {
         let currentChunk = '';
 
         for (const paragraph of paragraphs) {
-            // Check if adding this paragraph would exceed the max length
-            if ((currentChunk + paragraph).length > settings.maxChars && currentChunk.length > 0) {
-                chunks.push(currentChunk.trim());
-                currentChunk = '';
-            }
-
-            // Handle special tags for silence
-            if (paragraph.startsWith('# ')) {
-                if (currentChunk.length > 0) {
-                    chunks.push(currentChunk.trim());
-                    currentChunk = '';
-                }
-                chunks.push({
-                    text: paragraph,
-                    silence: parseFloat(settings.h1Silence),
-                    type: 'h1'
-                });
-            } else if (paragraph.startsWith('## ')) {
-                if (currentChunk.length > 0) {
-                    chunks.push(currentChunk.trim());
-                    currentChunk = '';
-                }
-                chunks.push({
-                    text: paragraph,
-                    silence: parseFloat(settings.h2Silence),
-                    type: 'h2'
-                });
-            } else if (paragraph.trim() === '###') {
+            // Check for silence marker
+            const silenceMatch = paragraph.trim().match(/^{{(\d*\.?\d+)}}$/);
+            if (silenceMatch) {
                 if (currentChunk.length > 0) {
                     chunks.push(currentChunk.trim());
                     currentChunk = '';
                 }
                 chunks.push({
                     text: '',
-                    silence: parseFloat(settings.chapterEndSilence),
-                    type: 'chapter-end'
+                    silence: parseFloat(silenceMatch[1]),
+                    type: 'silence'
                 });
-            } else {
-                // Regular paragraph
-                if (paragraph.length > settings.maxChars) {
-                    // If a single paragraph is too long, split it at sentence boundaries
-                    const sentences = this.splitIntoSentences(paragraph);
-                    for (const sentence of sentences) {
-                        if ((currentChunk + sentence).length > settings.maxChars && currentChunk.length > 0) {
-                            chunks.push(currentChunk.trim());
-                            currentChunk = '';
-                        }
-                        currentChunk += sentence + ' ';
+                continue;
+            }
+
+            // Check if adding this paragraph would exceed the max length
+            if ((currentChunk + paragraph).length > settings.maxChars && currentChunk.length > 0) {
+                chunks.push(currentChunk.trim());
+                currentChunk = '';
+            }
+
+            // Regular paragraph
+            if (paragraph.length > settings.maxChars) {
+                // If a single paragraph is too long, split it at sentence boundaries
+                const sentences = this.splitIntoSentences(paragraph);
+                for (const sentence of sentences) {
+                    if ((currentChunk + sentence).length > settings.maxChars && currentChunk.length > 0) {
+                        chunks.push(currentChunk.trim());
+                        currentChunk = '';
                     }
-                } else {
-                    currentChunk += paragraph + '\n\n';
+                    currentChunk += sentence + ' ';
                 }
+            } else {
+                currentChunk += paragraph + '\n\n';
             }
         }
 
