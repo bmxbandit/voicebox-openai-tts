@@ -63,6 +63,9 @@ class App {
 
         // Generate button
         document.getElementById('generateBtn').addEventListener('click', async () => {
+            // Initialize AudioContext on user interaction
+            this.audioManager.initializeAudioContext();
+            
             const text = document.getElementById('inputText').value;
             const settings = this.ui.getCurrentSettings();
             
@@ -80,26 +83,47 @@ class App {
                 const finalAudio = await this.audioManager.getFinalAudio();
                 this.ui.initializePlayer(finalAudio);
             } catch (error) {
+                console.error('Audio processing error:', error);
                 this.ui.showError(error.message);
             }
         });
 
         // Audio player controls
         document.getElementById('playPause').addEventListener('click', () => {
-            this.audioManager.togglePlayPause();
-            this.ui.updatePlayPauseButton(this.audioManager.isPlaying());
+            try {
+                this.audioManager.togglePlayPause();
+                this.ui.updatePlayPauseButton(this.audioManager.isPlaying);
+            } catch (error) {
+                console.error('Playback error:', error);
+                this.ui.showError(error.message);
+            }
         });
 
         document.getElementById('rewind15').addEventListener('click', () => {
-            this.audioManager.skip(-15);
+            try {
+                this.audioManager.skip(-15);
+            } catch (error) {
+                console.error('Skip error:', error);
+                this.ui.showError(error.message);
+            }
         });
 
         document.getElementById('forward15').addEventListener('click', () => {
-            this.audioManager.skip(15);
+            try {
+                this.audioManager.skip(15);
+            } catch (error) {
+                console.error('Skip error:', error);
+                this.ui.showError(error.message);
+            }
         });
 
         document.getElementById('downloadBtn').addEventListener('click', () => {
-            this.audioManager.downloadAudio(this.ui.getCurrentSettings().format);
+            try {
+                this.audioManager.downloadAudio(this.ui.getCurrentSettings().format);
+            } catch (error) {
+                console.error('Download error:', error);
+                this.ui.showError(error.message);
+            }
         });
     }
 }

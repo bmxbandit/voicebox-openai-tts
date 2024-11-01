@@ -1,6 +1,6 @@
 export class AudioManager {
     constructor() {
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        this.audioContext = null;
         this.audioBuffers = [];
         this.currentSource = null;
         this.startTime = 0;
@@ -9,73 +9,139 @@ export class AudioManager {
         this.finalBuffer = null;
     }
 
-    async processChunk(chunk, settings) {
-        const audioBuffer = await this.audioContext.decodeAudioData(chunk.audio);
-        
-        // Add pre-silence if specified
-        if (settings.preSilence > 0) {
-            this.audioBuffers.push(this.createSilence(settings.preSilence));
+    initializeAudioContext() {
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
-        
-        // Add the audio chunk
-        this.audioBuffers.push(audioBuffer);
-        
-        // Add post-silence if specified
-        if (settings.postSilence > 0 || chunk.silence > 0) {
-            const silenceDuration = Math.max(settings.postSilence, chunk.silence || 0);
-            this.audioBuffers.push(this.createSilence(silenceDuration));
+        return this.audioContext;
+    }
+
+    async processChunk(chunk, settings) {
+        // Ensure AudioContext is initialized
+        this.initializeAudioContext();
+
+        try {
+            const audioBuffer = await this.audioContext.decodeAudioData(chunk.audio);
+            
+            // Only add valid audio buffers
+            if (audioBuffer && audioBuffer.length > 0) {
+                // Add the audio chunk
+                this.audioBuffers.push(audioBuffer);
+                
+                // Add silence if specified
+                if (chunk.silence > 0) {
+                    const silenceBuffer = this.createSilence(chunk.silence);
+                    if (silenceBuffer && silenceBuffer.length > 0) {
+                        this.audioBuffers.push(silenceBuffer);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error processing audio chunk:', error);
+            throw new Error('Failed to process audio chunk');
         }
     }
 
     createSilence(duration) {
-        const sampleRate = this.audioContext.sampleRate;
-        const numberOfSamples = duration * sampleRate;
-        const silenceBuffer = this.audioContext.createBuffer(1, numberOfSamples, sampleRate);
-        const channelData = silenceBuffer.getChannelData(0);
-        for (let i = 0; i < numberOfSamples; i++) {
-            channelData[i] = 0;
+        if (!this.audioContext) {
+            this.initializeAudioContext();
         }
-        return silenceBuffer;
+
+        const sampleRate = this.audioContext.sampleRate;
+        const numberOfSamples = Math.floor(duration * sampleRate);
+        
+        // Ensure we're creating a valid buffer
+        if (numberOfSamples <= 0) {
+            console.warn('Invalid silence duration:', duration);
+            return null;
+        }
+
+        try {
+            const silenceBuffer = this.audioContext.createBuffer(1, numberOfSamples, sampleRate);
+            const channelData = silenceBuffer.getChannelData(0);
+            for (let i = 0; i < numberOfSamples; i++) {
+                channelData[i] = 0;
+            }
+            return silenceBuffer;
+        } catch (error) {
+            console.error('Error creating silence buffer:', error);
+            return null;
+        }
     }
 
     async getFinalAudio() {
-        // Calculate total duration
-        const totalDuration = this.audioBuffers.reduce((acc, buffer) => acc + buffer.duration, 0);
-        
-        // Create a new buffer for the complete audio
-        this.finalBuffer = this.audioContext.createBuffer(
-            1,
-            totalDuration * this.audioContext.sampleRate,
-            this.audioContext.sampleRate
-        );
-        
-        // Combine all buffers
-        let offset = 0;
-        for (const buffer of this.audioBuffers) {
-            this.finalBuffer.copyToChannel(buffer.getChannelData(0), 0, offset);
-            offset += buffer.length;
+        if (!this.audioContext) {
+            this.initializeAudioContext();
         }
+
+        // Filter out any null or invalid buffers
+        const validBuffers = this.audioBuffers.filter(buffer => buffer && buffer.length > 0);
         
-        return this.finalBuffer;
+        if (validBuffers.length === 0) {
+            throw new Error('No valid audio buffers to combine');
+        }
+
+        // Calculate total duration
+        const totalDuration = validBuffers.reduce((acc, buffer) => acc + buffer.duration, 0);
+        const totalSamples = Math.floor(totalDuration * this.audioContext.sampleRate);
+
+        try {
+            // Create a new buffer for the complete audio
+            this.finalBuffer = this.audioContext.createBuffer(
+                1,
+                totalSamples,
+                this.audioContext.sampleRate
+            );
+
+            // Combine all buffers
+            let offset = 0;
+            for (const buffer of validBuffers) {
+                this.finalBuffer.copyToChannel(buffer.getChannelData(0), 0, offset);
+                offset += buffer.length;
+            }
+
+            return this.finalBuffer;
+        } catch (error) {
+            console.error('Error creating final audio:', error);
+            throw new Error('Failed to combine audio chunks');
+        }
     }
 
     play(startTime = 0) {
+        if (!this.audioContext) {
+            this.initializeAudioContext();
+        }
+
+        // Resume AudioContext if it's suspended
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
+
         if (this.finalBuffer) {
-            this.currentSource = this.audioContext.createBufferSource();
-            this.currentSource.buffer = this.finalBuffer;
-            this.currentSource.connect(this.audioContext.destination);
-            
-            this.startTime = this.audioContext.currentTime - startTime;
-            this.currentSource.start(0, startTime);
-            this.isPlaying = true;
+            try {
+                this.currentSource = this.audioContext.createBufferSource();
+                this.currentSource.buffer = this.finalBuffer;
+                this.currentSource.connect(this.audioContext.destination);
+                
+                this.startTime = this.audioContext.currentTime - startTime;
+                this.currentSource.start(0, startTime);
+                this.isPlaying = true;
+            } catch (error) {
+                console.error('Error playing audio:', error);
+                throw new Error('Failed to play audio');
+            }
         }
     }
 
     pause() {
         if (this.currentSource) {
-            this.currentSource.stop();
-            this.pauseTime = this.audioContext.currentTime - this.startTime;
-            this.isPlaying = false;
+            try {
+                this.currentSource.stop();
+                this.pauseTime = this.audioContext.currentTime - this.startTime;
+                this.isPlaying = false;
+            } catch (error) {
+                console.error('Error pausing audio:', error);
+            }
         }
     }
 
@@ -105,16 +171,21 @@ export class AudioManager {
     async downloadAudio(format) {
         if (!this.finalBuffer) return;
 
-        const audioData = await this.encodeAudio(format);
-        const blob = new Blob([audioData], { type: `audio/${format}` });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `voicebox_audio.${format}`;
-        a.click();
-        
-        URL.revokeObjectURL(url);
+        try {
+            const audioData = await this.encodeAudio(format);
+            const blob = new Blob([audioData], { type: `audio/${format}` });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `voicebox_audio.${format}`;
+            a.click();
+            
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error downloading audio:', error);
+            throw new Error('Failed to download audio');
+        }
     }
 
     async encodeAudio(format) {
