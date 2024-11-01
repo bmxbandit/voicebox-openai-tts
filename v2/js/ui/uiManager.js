@@ -117,10 +117,10 @@ export class UIManager {
                 return `
                     <div class="chunk-item silence-chunk">
                         <div class="d-flex justify-content-between align-items-center">
-                            <strong>Silence</strong>
+                            <strong>Silence Break</strong>
                             <div class="silence-info">
                                 <i class="bi bi-volume-mute"></i> 
-                                <span class="badge bg-secondary">${chunk.silence}s</span>
+                                <span class="badge bg-secondary">${chunk.silence} seconds</span>
                             </div>
                         </div>
                     </div>
@@ -130,7 +130,7 @@ export class UIManager {
             return `
                 <div class="chunk-item">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <strong>Chunk ${index + 1}</strong>
+                        <strong>Text Chunk ${index + 1}</strong>
                     </div>
                     <pre class="mt-2 mb-0">${this.escapeHtml(chunk)}</pre>
                 </div>
