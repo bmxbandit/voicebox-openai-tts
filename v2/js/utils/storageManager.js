@@ -2,6 +2,7 @@ export class StorageManager {
     constructor() {
         this.SETTINGS_KEY = 'voicebox_settings';
         this.API_KEY = 'voicebox_api_key';
+        this.TEXT_INPUT = 'voicebox_text_input';
     }
 
     saveSettings(settings) {
@@ -34,14 +35,24 @@ export class StorageManager {
         return localStorage.getItem(this.API_KEY) || '';
     }
 
+    saveTextInput(text) {
+        try {
+            localStorage.setItem(this.TEXT_INPUT, text);
+        } catch (error) {
+            console.error('Error saving text input:', error);
+        }
+    }
+
+    getTextInput() {
+        return localStorage.getItem(this.TEXT_INPUT) || '';
+    }
+
     getDefaultSettings() {
         return {
             model: 'tts-1',
             voice: 'alloy',
             format: 'mp3',
             maxChars: 4096,
-            preSilence: 0,
-            postSilence: 0,
             h1Silence: 2,
             h2Silence: 1.5,
             chapterEndSilence: 3
@@ -51,6 +62,8 @@ export class StorageManager {
     clearSettings() {
         try {
             localStorage.removeItem(this.SETTINGS_KEY);
+            localStorage.removeItem(this.API_KEY);
+            localStorage.removeItem(this.TEXT_INPUT);
         } catch (error) {
             console.error('Error clearing settings:', error);
         }

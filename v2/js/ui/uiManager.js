@@ -1,6 +1,7 @@
 export class UIManager {
     constructor() {
         this.initializeElements();
+        this.setupAutoSave();
     }
 
     initializeElements() {
@@ -19,6 +20,24 @@ export class UIManager {
             chunkCount: document.getElementById('chunkCount'),
             chunkPreview: document.getElementById('chunkPreview')
         };
+    }
+
+    setupAutoSave() {
+        // Auto-save text input with debouncing
+        let timeout;
+        this.elements.inputText.addEventListener('input', (e) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                this.saveTextInput(e.target.value);
+            }, 500); // Save after 500ms of no typing
+        });
+
+        // Auto-save settings on change
+        document.querySelectorAll('select, input[type="number"]').forEach(element => {
+            element.addEventListener('change', () => {
+                this.saveSettings();
+            });
+        });
     }
 
     getCurrentSettings() {
@@ -40,6 +59,24 @@ export class UIManager {
                 element.value = value;
             }
         });
+    }
+
+    setTextInput(text) {
+        if (this.elements.inputText) {
+            this.elements.inputText.value = text;
+        }
+    }
+
+    saveSettings() {
+        if (this.onSaveSettings) {
+            this.onSaveSettings(this.getCurrentSettings());
+        }
+    }
+
+    saveTextInput(text) {
+        if (this.onSaveTextInput) {
+            this.onSaveTextInput(text);
+        }
     }
 
     displayChunkPreview(chunks) {
@@ -93,7 +130,6 @@ export class UIManager {
     }
 
     showError(message) {
-        // You could implement a more sophisticated error display system
         alert(message);
     }
 

@@ -16,16 +16,34 @@ class App {
     }
 
     async init() {
-        // Load saved settings
-        this.loadSettings();
+        // Set up storage callbacks
+        this.ui.onSaveSettings = (settings) => this.storage.saveSettings(settings);
+        this.ui.onSaveTextInput = (text) => this.storage.saveTextInput(text);
+        
+        // Load saved state
+        this.loadSavedState();
         
         // Initialize event listeners
         this.initializeEventListeners();
     }
 
-    loadSettings() {
+    loadSavedState() {
+        // Load and apply settings
         const settings = this.storage.getSettings();
         this.ui.applySettings(settings);
+
+        // Load and set API key
+        const apiKey = this.storage.getApiKey();
+        if (apiKey) {
+            document.getElementById('apiKey').value = apiKey;
+            this.api.setApiKey(apiKey);
+        }
+
+        // Load and set text input
+        const savedText = this.storage.getTextInput();
+        if (savedText) {
+            this.ui.setTextInput(savedText);
+        }
     }
 
     initializeEventListeners() {
@@ -33,13 +51,6 @@ class App {
         document.getElementById('apiKey').addEventListener('change', (e) => {
             this.storage.saveApiKey(e.target.value);
             this.api.setApiKey(e.target.value);
-        });
-
-        // Configuration changes
-        document.querySelectorAll('select, input[type="number"]').forEach(element => {
-            element.addEventListener('change', () => {
-                this.storage.saveSettings(this.ui.getCurrentSettings());
-            });
         });
 
         // Preview button
