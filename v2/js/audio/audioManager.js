@@ -5,13 +5,20 @@ export class AudioManager {
         this.currentSource = null;
         this.startTime = 0;
         this.pauseTime = 0;
-        this.isPlaying = false;
+        this._isPlaying = false;
         this.finalBuffer = null;
+        this.gainNode = null;
+    }
+
+    get isPlaying() {
+        return this._isPlaying;
     }
 
     initializeAudioContext() {
         if (!this.audioContext) {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.gainNode = this.audioContext.createGain();
+            this.gainNode.connect(this.audioContext.destination);
         }
         if (this.audioContext.state === 'suspended') {
             this.audioContext.resume();
@@ -20,19 +27,16 @@ export class AudioManager {
     }
 
     async processChunk(chunk, settings) {
-        // Ensure AudioContext is initialized
         this.initializeAudioContext();
 
         try {
             if (chunk.silence > 0) {
-                // Handle silence chunk
                 const silenceBuffer = this.createSilence(chunk.silence);
                 if (silenceBuffer && silenceBuffer.length > 0) {
                     this.audioBuffers.push(silenceBuffer);
                 }
             } else if (chunk.audio) {
-                // Handle audio chunk
-                const audioBuffer = await this.audioContext.decodeAudioData(chunk.audio);
+                const audioBuffer = await this.audioContext.decodeAudioData(chunk.audio.slice(0));
                 if (audioBuffer && audioBuffer.length > 0) {
                     this.audioBuffers.push(audioBuffer);
                 }
@@ -44,14 +48,11 @@ export class AudioManager {
     }
 
     createSilence(duration) {
-        if (!this.audioContext) {
-            this.initializeAudioContext();
-        }
+        this.initializeAudioContext();
 
         const sampleRate = this.audioContext.sampleRate;
         const numberOfSamples = Math.floor(duration * sampleRate);
         
-        // Ensure we're creating a valid buffer
         if (numberOfSamples <= 0) {
             console.warn('Invalid silence duration:', duration);
             return null;
@@ -71,30 +72,24 @@ export class AudioManager {
     }
 
     async getFinalAudio() {
-        if (!this.audioContext) {
-            this.initializeAudioContext();
-        }
+        this.initializeAudioContext();
 
-        // Filter out any null or invalid buffers
         const validBuffers = this.audioBuffers.filter(buffer => buffer && buffer.length > 0);
         
         if (validBuffers.length === 0) {
             throw new Error('No valid audio buffers to combine');
         }
 
-        // Calculate total duration
         const totalDuration = validBuffers.reduce((acc, buffer) => acc + buffer.duration, 0);
         const totalSamples = Math.floor(totalDuration * this.audioContext.sampleRate);
 
         try {
-            // Create a new buffer for the complete audio
             this.finalBuffer = this.audioContext.createBuffer(
                 1,
                 totalSamples,
                 this.audioContext.sampleRate
             );
 
-            // Combine all buffers
             let offset = 0;
             for (const buffer of validBuffers) {
                 this.finalBuffer.copyToChannel(buffer.getChannelData(0), 0, offset);
@@ -103,7 +98,7 @@ export class AudioManager {
 
             // Clear individual buffers to free memory
             this.audioBuffers = [];
-
+            
             return this.finalBuffer;
         } catch (error) {
             console.error('Error creating final audio:', error);
@@ -112,38 +107,50 @@ export class AudioManager {
     }
 
     play(startTime = 0) {
-        if (!this.audioContext) {
-            this.initializeAudioContext();
-        }
+        this.initializeAudioContext();
 
         if (!this.finalBuffer) {
+            console.error('No audio buffer available');
             throw new Error('No audio available to play');
         }
 
         try {
             if (this.currentSource) {
                 this.currentSource.stop();
+                this.currentSource.disconnect();
             }
 
             this.currentSource = this.audioContext.createBufferSource();
             this.currentSource.buffer = this.finalBuffer;
-            this.currentSource.connect(this.audioContext.destination);
+            this.currentSource.connect(this.gainNode);
             
             this.startTime = this.audioContext.currentTime - startTime;
             this.currentSource.start(0, startTime);
-            this.isPlaying = true;
+            this._isPlaying = true;
+
+            // Handle playback completion
+            this.currentSource.onended = () => {
+                if (this._isPlaying) {
+                    this._isPlaying = false;
+                    this.pauseTime = 0;
+                    // Notify UI of playback completion
+                    window.dispatchEvent(new CustomEvent('audioPlaybackEnded'));
+                }
+            };
         } catch (error) {
             console.error('Error playing audio:', error);
+            this._isPlaying = false;
             throw new Error('Failed to play audio');
         }
     }
 
     pause() {
-        if (this.currentSource && this.isPlaying) {
+        if (this.currentSource && this._isPlaying) {
             try {
                 this.currentSource.stop();
+                this.currentSource.disconnect();
                 this.pauseTime = this.audioContext.currentTime - this.startTime;
-                this.isPlaying = false;
+                this._isPlaying = false;
             } catch (error) {
                 console.error('Error pausing audio:', error);
             }
@@ -155,7 +162,7 @@ export class AudioManager {
             throw new Error('No audio available');
         }
 
-        if (this.isPlaying) {
+        if (this._isPlaying) {
             this.pause();
         } else {
             this.play(this.pauseTime);
@@ -167,17 +174,18 @@ export class AudioManager {
             throw new Error('No audio available');
         }
 
-        const currentTime = this.isPlaying
+        const currentTime = this._isPlaying
             ? this.audioContext.currentTime - this.startTime
             : this.pauseTime;
             
         const newTime = Math.max(0, Math.min(currentTime + seconds, this.finalBuffer.duration));
         
-        if (this.isPlaying) {
+        if (this._isPlaying) {
             this.pause();
+        }
+        this.pauseTime = newTime;
+        if (this._isPlaying) {
             this.play(newTime);
-        } else {
-            this.pauseTime = newTime;
         }
     }
 
@@ -194,7 +202,9 @@ export class AudioManager {
             const a = document.createElement('a');
             a.href = url;
             a.download = `voicebox_audio.${format}`;
+            document.body.appendChild(a);
             a.click();
+            document.body.removeChild(a);
             
             URL.revokeObjectURL(url);
         } catch (error) {
@@ -240,6 +250,20 @@ export class AudioManager {
         }
         
         return buffer;
+    }
+
+    cleanup() {
+        if (this.currentSource) {
+            try {
+                this.currentSource.stop();
+                this.currentSource.disconnect();
+            } catch (e) {
+                console.error('Error cleaning up current source:', e);
+            }
+        }
+        this._isPlaying = false;
+        this.pauseTime = 0;
+        this.startTime = 0;
     }
 }
 

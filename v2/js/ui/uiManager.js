@@ -2,10 +2,10 @@ export class UIManager {
     constructor() {
         this.initializeElements();
         this.setupAutoSave();
+        this.setupPlaybackEndedListener();
     }
 
     initializeElements() {
-        // Store element references
         this.elements = {
             apiKey: document.getElementById('apiKey'),
             inputText: document.getElementById('inputText'),
@@ -16,8 +16,11 @@ export class UIManager {
             playerSection: document.getElementById('playerSection'),
             progressBar: document.querySelector('.progress-bar'),
             progressStatus: document.getElementById('progressStatus'),
-            playPauseBtn: document.getElementById('playPause'),
+            playPause: document.getElementById('playPause'),
             playPauseIcon: document.querySelector('#playPause i'),
+            rewind15: document.getElementById('rewind15'),
+            forward15: document.getElementById('forward15'),
+            downloadBtn: document.getElementById('downloadBtn'),
             chunkCount: document.getElementById('chunkCount'),
             chunkPreview: document.getElementById('chunkPreview'),
             model: document.getElementById('model'),
@@ -26,7 +29,6 @@ export class UIManager {
             maxChars: document.getElementById('maxChars')
         };
 
-        // Verify all required elements exist
         Object.entries(this.elements).forEach(([key, element]) => {
             if (!element) {
                 console.error(`Required element not found: ${key}`);
@@ -34,17 +36,21 @@ export class UIManager {
         });
     }
 
+    setupPlaybackEndedListener() {
+        window.addEventListener('audioPlaybackEnded', () => {
+            this.updatePlayPauseButton(false);
+        });
+    }
+
     setupAutoSave() {
-        // Auto-save text input with debouncing
         let timeout;
-        this.elements.inputText.addEventListener('input', (e) => {
+        this.elements.inputText?.addEventListener('input', (e) => {
             clearTimeout(timeout);
             timeout = setTimeout(() => {
                 this.saveTextInput(e.target.value);
-            }, 500); // Save after 500ms of no typing
+            }, 500);
         });
 
-        // Auto-save settings on change
         const settingsElements = [
             this.elements.model,
             this.elements.voice,
@@ -53,20 +59,18 @@ export class UIManager {
         ];
 
         settingsElements.forEach(element => {
-            if (element) {
-                element.addEventListener('change', () => {
-                    this.saveSettings();
-                });
-            }
+            element?.addEventListener('change', () => {
+                this.saveSettings();
+            });
         });
     }
 
     getCurrentSettings() {
         return {
-            model: this.elements.model.value,
-            voice: this.elements.voice.value,
-            format: this.elements.format.value,
-            maxChars: parseInt(this.elements.maxChars.value)
+            model: this.elements.model?.value || 'tts-1',
+            voice: this.elements.voice?.value || 'alloy',
+            format: this.elements.format?.value || 'mp3',
+            maxChars: parseInt(this.elements.maxChars?.value || '4096')
         };
     }
 
@@ -159,6 +163,12 @@ export class UIManager {
             this.elements.playerSection.classList.remove('d-none');
             this.elements.progressSection.classList.add('d-none');
             this.updatePlayPauseButton(false);
+            
+            // Enable player controls
+            this.elements.playPause.disabled = false;
+            this.elements.rewind15.disabled = false;
+            this.elements.forward15.disabled = false;
+            this.elements.downloadBtn.disabled = false;
         }
     }
 
