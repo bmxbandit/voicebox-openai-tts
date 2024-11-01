@@ -21,19 +21,17 @@ export class AudioManager {
         this.initializeAudioContext();
 
         try {
-            const audioBuffer = await this.audioContext.decodeAudioData(chunk.audio);
-            
-            // Only add valid audio buffers
-            if (audioBuffer && audioBuffer.length > 0) {
-                // Add the audio chunk
-                this.audioBuffers.push(audioBuffer);
-                
-                // Add silence if specified
-                if (chunk.silence > 0) {
-                    const silenceBuffer = this.createSilence(chunk.silence);
-                    if (silenceBuffer && silenceBuffer.length > 0) {
-                        this.audioBuffers.push(silenceBuffer);
-                    }
+            if (chunk.silence > 0) {
+                // Handle silence chunk
+                const silenceBuffer = this.createSilence(chunk.silence);
+                if (silenceBuffer && silenceBuffer.length > 0) {
+                    this.audioBuffers.push(silenceBuffer);
+                }
+            } else if (chunk.audio) {
+                // Handle audio chunk
+                const audioBuffer = await this.audioContext.decodeAudioData(chunk.audio);
+                if (audioBuffer && audioBuffer.length > 0) {
+                    this.audioBuffers.push(audioBuffer);
                 }
             }
         } catch (error) {

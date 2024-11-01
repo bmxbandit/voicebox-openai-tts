@@ -8,9 +8,18 @@ export class ApiClient {
         this.apiKey = apiKey;
     }
 
+    getApiKey() {
+        return this.apiKey;
+    }
+
     async generateSpeech(text, settings) {
         if (!this.apiKey) {
             throw new Error('API key is required');
+        }
+
+        // Don't make API call for empty text
+        if (!text || (typeof text === 'string' && !text.trim())) {
+            return null;
         }
 
         const response = await fetch(this.baseUrl, {
@@ -33,9 +42,6 @@ export class ApiClient {
         }
 
         const audioData = await response.arrayBuffer();
-        return {
-            audio: audioData,
-            silence: typeof text === 'object' ? text.silence : 0
-        };
+        return audioData;
     }
 }

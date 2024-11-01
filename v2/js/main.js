@@ -16,119 +16,171 @@ class App {
     }
 
     async init() {
-        // Set up storage callbacks
-        this.ui.onSaveSettings = (settings) => this.storage.saveSettings(settings);
-        this.ui.onSaveTextInput = (text) => this.storage.saveTextInput(text);
-        
-        // Load saved state
-        this.loadSavedState();
-        
-        // Initialize event listeners
-        this.initializeEventListeners();
+        try {
+            // Set up storage callbacks
+            this.ui.onSaveSettings = (settings) => this.storage.saveSettings(settings);
+            this.ui.onSaveTextInput = (text) => this.storage.saveTextInput(text);
+            
+            // Load saved state
+            this.loadSavedState();
+            
+            // Initialize event listeners
+            this.initializeEventListeners();
+        } catch (error) {
+            console.error('Initialization error:', error);
+            this.ui.showError('Failed to initialize application');
+        }
     }
 
     loadSavedState() {
-        // Load and apply settings
-        const settings = this.storage.getSettings();
-        this.ui.applySettings(settings);
+        try {
+            // Load and apply settings
+            const settings = this.storage.getSettings();
+            this.ui.applySettings(settings);
 
-        // Load and set API key
-        const apiKey = this.storage.getApiKey();
-        if (apiKey) {
-            document.getElementById('apiKey').value = apiKey;
-            this.api.setApiKey(apiKey);
-        }
+            // Load and set API key
+            const apiKey = this.storage.getApiKey();
+            if (apiKey) {
+                this.ui.elements.apiKey.value = apiKey;
+                this.api.setApiKey(apiKey);
+            }
 
-        // Load and set text input
-        const savedText = this.storage.getTextInput();
-        if (savedText) {
-            this.ui.setTextInput(savedText);
+            // Load and set text input
+            const savedText = this.storage.getTextInput();
+            if (savedText) {
+                this.ui.setTextInput(savedText);
+            }
+        } catch (error) {
+            console.error('Error loading saved state:', error);
         }
     }
 
     initializeEventListeners() {
-        // API Key handling
-        document.getElementById('apiKey').addEventListener('change', (e) => {
-            this.storage.saveApiKey(e.target.value);
-            this.api.setApiKey(e.target.value);
-        });
+        try {
+            // API Key handling
+            this.ui.elements.apiKey.addEventListener('change', (e) => {
+                this.storage.saveApiKey(e.target.value);
+                this.api.setApiKey(e.target.value);
+            });
 
-        // Preview button
-        document.getElementById('previewBtn').addEventListener('click', () => {
-            const text = document.getElementById('inputText').value;
-            const settings = this.ui.getCurrentSettings();
-            const chunks = this.textProcessor.processText(text, settings);
-            this.ui.displayChunkPreview(chunks);
-        });
-
-        // Generate button
-        document.getElementById('generateBtn').addEventListener('click', async () => {
-            // Initialize AudioContext on user interaction
-            this.audioManager.initializeAudioContext();
-            
-            const text = document.getElementById('inputText').value;
-            const settings = this.ui.getCurrentSettings();
-            
-            try {
-                this.ui.showProgress();
-                const chunks = this.textProcessor.processText(text, settings);
-                
-                for (let i = 0; i < chunks.length; i++) {
-                    const chunk = chunks[i];
-                    const audioData = await this.api.generateSpeech(chunk, settings);
-                    await this.audioManager.processChunk(audioData, settings);
-                    this.ui.updateProgress((i + 1) / chunks.length * 100);
+            // Preview button
+            this.ui.elements.previewBtn.addEventListener('click', () => {
+                try {
+                    const text = this.ui.elements.inputText.value;
+                    const settings = this.ui.getCurrentSettings();
+                    const chunks = this.textProcessor.processText(text, settings);
+                    this.ui.displayChunkPreview(chunks);
+                } catch (error) {
+                    console.error('Preview error:', error);
+                    this.ui.showError('Failed to generate preview');
                 }
+            });
 
-                const finalAudio = await this.audioManager.getFinalAudio();
-                this.ui.initializePlayer(finalAudio);
-            } catch (error) {
-                console.error('Audio processing error:', error);
-                this.ui.showError(error.message);
-            }
-        });
+            // Generate button
+            this.ui.elements.generateBtn.addEventListener('click', async () => {
+                try {
+                    // Validate API key
+                    if (!this.api.getApiKey()) {
+                        throw new Error('Please enter your OpenAI API key');
+                    }
 
-        // Audio player controls
-        document.getElementById('playPause').addEventListener('click', () => {
-            try {
-                this.audioManager.togglePlayPause();
-                this.ui.updatePlayPauseButton(this.audioManager.isPlaying);
-            } catch (error) {
-                console.error('Playback error:', error);
-                this.ui.showError(error.message);
-            }
-        });
+                    // Initialize AudioContext on user interaction
+                    this.audioManager.initializeAudioContext();
+                    
+                    const text = this.ui.elements.inputText.value;
+                    if (!text.trim()) {
+                        throw new Error('Please enter some text to convert');
+                    }
 
-        document.getElementById('rewind15').addEventListener('click', () => {
-            try {
-                this.audioManager.skip(-15);
-            } catch (error) {
-                console.error('Skip error:', error);
-                this.ui.showError(error.message);
-            }
-        });
+                    const settings = this.ui.getCurrentSettings();
+                    this.ui.showProgress();
+                    
+                    const chunks = this.textProcessor.processText(text, settings);
+                    console.log('Processing chunks:', chunks);
 
-        document.getElementById('forward15').addEventListener('click', () => {
-            try {
-                this.audioManager.skip(15);
-            } catch (error) {
-                console.error('Skip error:', error);
-                this.ui.showError(error.message);
-            }
-        });
+                    for (let i = 0; i < chunks.length; i++) {
+                        const chunk = chunks[i];
+                        
+                        if (typeof chunk === 'object' && chunk.type === 'silence') {
+                            // Handle silence chunk
+                            console.log(`Adding silence: ${chunk.silence}s`);
+                            await this.audioManager.processChunk({
+                                audio: null,
+                                silence: chunk.silence
+                            }, settings);
+                        } else if (typeof chunk === 'string' && chunk.trim()) {
+                            // Handle text chunk
+                            console.log(`Processing text chunk: ${chunk.substring(0, 50)}...`);
+                            const audioData = await this.api.generateSpeech(chunk, settings);
+                            if (audioData) {
+                                await this.audioManager.processChunk({
+                                    audio: audioData,
+                                    silence: 0
+                                }, settings);
+                            }
+                        }
 
-        document.getElementById('downloadBtn').addEventListener('click', () => {
-            try {
-                this.audioManager.downloadAudio(this.ui.getCurrentSettings().format);
-            } catch (error) {
-                console.error('Download error:', error);
-                this.ui.showError(error.message);
-            }
-        });
+                        this.ui.updateProgress((i + 1) / chunks.length * 100);
+                    }
+
+                    const finalAudio = await this.audioManager.getFinalAudio();
+                    this.ui.initializePlayer(finalAudio);
+                } catch (error) {
+                    console.error('Generation error:', error);
+                    this.ui.showError(error.message || 'Failed to generate audio');
+                }
+            });
+
+            // Audio player controls
+            this.ui.elements.playPause.addEventListener('click', () => {
+                try {
+                    this.audioManager.togglePlayPause();
+                    this.ui.updatePlayPauseButton(this.audioManager.isPlaying);
+                } catch (error) {
+                    console.error('Playback error:', error);
+                    this.ui.showError('Failed to toggle playback');
+                }
+            });
+
+            this.ui.elements.rewind15.addEventListener('click', () => {
+                try {
+                    this.audioManager.skip(-15);
+                } catch (error) {
+                    console.error('Skip error:', error);
+                    this.ui.showError('Failed to skip backward');
+                }
+            });
+
+            this.ui.elements.forward15.addEventListener('click', () => {
+                try {
+                    this.audioManager.skip(15);
+                } catch (error) {
+                    console.error('Skip error:', error);
+                    this.ui.showError('Failed to skip forward');
+                }
+            });
+
+            this.ui.elements.downloadBtn.addEventListener('click', () => {
+                try {
+                    this.audioManager.downloadAudio(this.ui.getCurrentSettings().format);
+                } catch (error) {
+                    console.error('Download error:', error);
+                    this.ui.showError('Failed to download audio');
+                }
+            });
+        } catch (error) {
+            console.error('Error setting up event listeners:', error);
+            this.ui.showError('Failed to initialize controls');
+        }
     }
 }
 
 // Initialize the application when the DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new App();
+    try {
+        new App();
+    } catch (error) {
+        console.error('Application startup error:', error);
+        alert('Failed to start application');
+    }
 });
