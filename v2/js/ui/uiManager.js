@@ -27,8 +27,6 @@ export class UIManager {
             voice: document.getElementById('voice').value,
             format: document.getElementById('format').value,
             maxChars: parseInt(document.getElementById('maxChars').value),
-            preSilence: parseFloat(document.getElementById('preSilence').value),
-            postSilence: parseFloat(document.getElementById('postSilence').value),
             h1Silence: parseFloat(document.getElementById('h1Silence').value),
             h2Silence: parseFloat(document.getElementById('h2Silence').value),
             chapterEndSilence: parseFloat(document.getElementById('chapterEndSilence').value)
@@ -50,12 +48,21 @@ export class UIManager {
         
         this.elements.chunkPreview.innerHTML = chunks.map((chunk, index) => {
             const text = typeof chunk === 'string' ? chunk : chunk.text;
-            const silence = typeof chunk === 'object' ? 
-                `<small class="text-muted">(Silence: ${chunk.silence}s)</small>` : '';
+            let silenceInfo = '';
+            
+            if (typeof chunk === 'object' && chunk.silence > 0) {
+                silenceInfo = `<div class="silence-info">
+                    <i class="bi bi-volume-mute"></i> 
+                    <span class="badge bg-secondary">${chunk.silence}s silence</span>
+                </div>`;
+            }
             
             return `
                 <div class="chunk-item">
-                    <strong>Chunk ${index + 1}</strong> ${silence}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Chunk ${index + 1}</strong>
+                        ${silenceInfo}
+                    </div>
                     <pre class="mt-2 mb-0">${this.escapeHtml(text)}</pre>
                 </div>
             `;

@@ -46,7 +46,7 @@ body {
 }
 
 .chunk-item {
-    padding: 0.5rem;
+    padding: 1rem;
     margin-bottom: 0.5rem;
     border: 1px solid #dee2e6;
     border-radius: 0.25rem;
@@ -55,6 +55,25 @@ body {
 
 .chunk-item:hover {
     background-color: #f8f9fa;
+}
+
+.chunk-item pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background-color: #f8f9fa;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    margin: 0;
+}
+
+.silence-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.silence-info i {
+    color: #6c757d;
 }
 
 /* Progress Styles */
