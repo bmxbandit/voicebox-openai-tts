@@ -8,6 +8,7 @@ export class AudioManager {
         this._isPlaying = false;
         this.finalBuffer = null;
         this.gainNode = null;
+        this.SAMPLE_RATE = 48000; // Force 48 kHz sample rate
     }
 
     get isPlaying() {
@@ -16,7 +17,10 @@ export class AudioManager {
 
     initializeAudioContext() {
         if (!this.audioContext) {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            // Force 48 kHz sample rate
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                sampleRate: this.SAMPLE_RATE
+            });
             this.gainNode = this.audioContext.createGain();
             this.gainNode.connect(this.audioContext.destination);
         }
@@ -50,8 +54,7 @@ export class AudioManager {
     createSilence(duration) {
         this.initializeAudioContext();
 
-        const sampleRate = this.audioContext.sampleRate;
-        const numberOfSamples = Math.floor(duration * sampleRate);
+        const numberOfSamples = Math.floor(duration * this.SAMPLE_RATE);
         
         if (numberOfSamples <= 0) {
             console.warn('Invalid silence duration:', duration);
@@ -59,7 +62,7 @@ export class AudioManager {
         }
 
         try {
-            const silenceBuffer = this.audioContext.createBuffer(1, numberOfSamples, sampleRate);
+            const silenceBuffer = this.audioContext.createBuffer(1, numberOfSamples, this.SAMPLE_RATE);
             const channelData = silenceBuffer.getChannelData(0);
             for (let i = 0; i < numberOfSamples; i++) {
                 channelData[i] = 0;
@@ -81,13 +84,13 @@ export class AudioManager {
         }
 
         const totalDuration = validBuffers.reduce((acc, buffer) => acc + buffer.duration, 0);
-        const totalSamples = Math.floor(totalDuration * this.audioContext.sampleRate);
+        const totalSamples = Math.floor(totalDuration * this.SAMPLE_RATE);
 
         try {
             this.finalBuffer = this.audioContext.createBuffer(
                 1,
                 totalSamples,
-                this.audioContext.sampleRate
+                this.SAMPLE_RATE
             );
 
             let offset = 0;
@@ -220,7 +223,6 @@ export class AudioManager {
 
         const length = this.finalBuffer.length;
         const channels = this.finalBuffer.numberOfChannels;
-        const sampleRate = this.finalBuffer.sampleRate;
         
         const buffer = new ArrayBuffer(44 + length * 2);
         const view = new DataView(buffer);
@@ -233,8 +235,8 @@ export class AudioManager {
         view.setUint32(16, 16, true);
         view.setUint16(20, 1, true);
         view.setUint16(22, channels, true);
-        view.setUint32(24, sampleRate, true);
-        view.setUint32(28, sampleRate * 2, true);
+        view.setUint32(24, this.SAMPLE_RATE, true);
+        view.setUint32(28, this.SAMPLE_RATE * 2, true);
         view.setUint16(32, 2, true);
         view.setUint16(34, 16, true);
         writeString(view, 36, 'data');
