@@ -5,6 +5,7 @@ export class UIManager {
     }
 
     initializeElements() {
+        // Store element references
         this.elements = {
             apiKey: document.getElementById('apiKey'),
             inputText: document.getElementById('inputText'),
@@ -18,8 +19,19 @@ export class UIManager {
             playPauseBtn: document.getElementById('playPause'),
             playPauseIcon: document.querySelector('#playPause i'),
             chunkCount: document.getElementById('chunkCount'),
-            chunkPreview: document.getElementById('chunkPreview')
+            chunkPreview: document.getElementById('chunkPreview'),
+            model: document.getElementById('model'),
+            voice: document.getElementById('voice'),
+            format: document.getElementById('format'),
+            maxChars: document.getElementById('maxChars')
         };
+
+        // Verify all required elements exist
+        Object.entries(this.elements).forEach(([key, element]) => {
+            if (!element) {
+                console.error(`Required element not found: ${key}`);
+            }
+        });
     }
 
     setupAutoSave() {
@@ -33,32 +45,44 @@ export class UIManager {
         });
 
         // Auto-save settings on change
-        document.querySelectorAll('select, input[type="number"]').forEach(element => {
-            element.addEventListener('change', () => {
-                this.saveSettings();
-            });
+        const settingsElements = [
+            this.elements.model,
+            this.elements.voice,
+            this.elements.format,
+            this.elements.maxChars
+        ];
+
+        settingsElements.forEach(element => {
+            if (element) {
+                element.addEventListener('change', () => {
+                    this.saveSettings();
+                });
+            }
         });
     }
 
     getCurrentSettings() {
         return {
-            model: document.getElementById('model').value,
-            voice: document.getElementById('voice').value,
-            format: document.getElementById('format').value,
-            maxChars: parseInt(document.getElementById('maxChars').value),
-            h1Silence: parseFloat(document.getElementById('h1Silence').value),
-            h2Silence: parseFloat(document.getElementById('h2Silence').value),
-            chapterEndSilence: parseFloat(document.getElementById('chapterEndSilence').value)
+            model: this.elements.model.value,
+            voice: this.elements.voice.value,
+            format: this.elements.format.value,
+            maxChars: parseInt(this.elements.maxChars.value)
         };
     }
 
     applySettings(settings) {
-        Object.entries(settings).forEach(([key, value]) => {
-            const element = document.getElementById(key);
-            if (element) {
-                element.value = value;
-            }
-        });
+        if (settings.model && this.elements.model) {
+            this.elements.model.value = settings.model;
+        }
+        if (settings.voice && this.elements.voice) {
+            this.elements.voice.value = settings.voice;
+        }
+        if (settings.format && this.elements.format) {
+            this.elements.format.value = settings.format;
+        }
+        if (settings.maxChars && this.elements.maxChars) {
+            this.elements.maxChars.value = settings.maxChars;
+        }
     }
 
     setTextInput(text) {
@@ -80,59 +104,69 @@ export class UIManager {
     }
 
     displayChunkPreview(chunks) {
+        if (!this.elements.previewSection || !this.elements.chunkPreview) {
+            console.error('Preview elements not found');
+            return;
+        }
+
         this.elements.previewSection.classList.remove('d-none');
         this.elements.chunkCount.textContent = `Chunks: ${chunks.length}`;
         
         this.elements.chunkPreview.innerHTML = chunks.map((chunk, index) => {
-            const text = typeof chunk === 'string' ? chunk : chunk.text;
-            let silenceInfo = '';
-            let chunkType = '';
-            
-            if (typeof chunk === 'object' && chunk.silence > 0) {
-                let silenceLabel = '';
-                if (chunk.type === 'h1') silenceLabel = 'H1 Tag Silence';
-                else if (chunk.type === 'h2') silenceLabel = 'H2 Tag Silence';
-                else if (chunk.type === 'chapter-end') silenceLabel = 'Chapter End Silence';
-                
-                silenceInfo = `<div class="silence-info">
-                    <i class="bi bi-volume-mute"></i> 
-                    <span class="badge bg-secondary">${silenceLabel}: ${chunk.silence}s</span>
-                </div>`;
+            if (typeof chunk === 'object' && chunk.type === 'silence') {
+                return `
+                    <div class="chunk-item silence-chunk">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong>Silence</strong>
+                            <div class="silence-info">
+                                <i class="bi bi-volume-mute"></i> 
+                                <span class="badge bg-secondary">${chunk.silence}s</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
-            
+
             return `
                 <div class="chunk-item">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <strong>Chunk ${index + 1}</strong>
-                        ${silenceInfo}
                     </div>
-                    <pre class="mt-2 mb-0">${this.escapeHtml(text)}</pre>
+                    <pre class="mt-2 mb-0">${this.escapeHtml(chunk)}</pre>
                 </div>
             `;
         }).join('');
     }
 
     showProgress() {
-        this.elements.progressSection.classList.remove('d-none');
-        this.elements.progressBar.style.width = '0%';
-        this.elements.progressStatus.textContent = 'Processing...';
+        if (this.elements.progressSection) {
+            this.elements.progressSection.classList.remove('d-none');
+            this.elements.progressBar.style.width = '0%';
+            this.elements.progressStatus.textContent = 'Processing...';
+        }
     }
 
     updateProgress(percentage) {
-        this.elements.progressBar.style.width = `${percentage}%`;
-        this.elements.progressStatus.textContent = 
-            `Processing... ${Math.round(percentage)}% complete`;
+        if (this.elements.progressBar && this.elements.progressStatus) {
+            this.elements.progressBar.style.width = `${percentage}%`;
+            this.elements.progressStatus.textContent = 
+                `Processing... ${Math.round(percentage)}% complete`;
+        }
     }
 
     initializePlayer(audioBuffer) {
-        this.elements.playerSection.classList.remove('d-none');
-        this.elements.progressSection.classList.add('d-none');
-        this.updatePlayPauseButton(false);
+        if (this.elements.playerSection && this.elements.progressSection) {
+            this.elements.playerSection.classList.remove('d-none');
+            this.elements.progressSection.classList.add('d-none');
+            this.updatePlayPauseButton(false);
+        }
     }
 
     updatePlayPauseButton(isPlaying) {
-        this.elements.playPauseIcon.className = 
-            isPlaying ? 'bi bi-pause-fill' : 'bi bi-play-fill';
+        if (this.elements.playPauseIcon) {
+            this.elements.playPauseIcon.className = 
+                isPlaying ? 'bi bi-pause-fill' : 'bi bi-play-fill';
+        }
     }
 
     showError(message) {
