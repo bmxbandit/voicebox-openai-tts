@@ -13,6 +13,9 @@ export class AudioManager {
         if (!this.audioContext) {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
         return this.audioContext;
     }
 
@@ -98,6 +101,9 @@ export class AudioManager {
                 offset += buffer.length;
             }
 
+            // Clear individual buffers to free memory
+            this.audioBuffers = [];
+
             return this.finalBuffer;
         } catch (error) {
             console.error('Error creating final audio:', error);
@@ -110,29 +116,30 @@ export class AudioManager {
             this.initializeAudioContext();
         }
 
-        // Resume AudioContext if it's suspended
-        if (this.audioContext.state === 'suspended') {
-            this.audioContext.resume();
+        if (!this.finalBuffer) {
+            throw new Error('No audio available to play');
         }
 
-        if (this.finalBuffer) {
-            try {
-                this.currentSource = this.audioContext.createBufferSource();
-                this.currentSource.buffer = this.finalBuffer;
-                this.currentSource.connect(this.audioContext.destination);
-                
-                this.startTime = this.audioContext.currentTime - startTime;
-                this.currentSource.start(0, startTime);
-                this.isPlaying = true;
-            } catch (error) {
-                console.error('Error playing audio:', error);
-                throw new Error('Failed to play audio');
+        try {
+            if (this.currentSource) {
+                this.currentSource.stop();
             }
+
+            this.currentSource = this.audioContext.createBufferSource();
+            this.currentSource.buffer = this.finalBuffer;
+            this.currentSource.connect(this.audioContext.destination);
+            
+            this.startTime = this.audioContext.currentTime - startTime;
+            this.currentSource.start(0, startTime);
+            this.isPlaying = true;
+        } catch (error) {
+            console.error('Error playing audio:', error);
+            throw new Error('Failed to play audio');
         }
     }
 
     pause() {
-        if (this.currentSource) {
+        if (this.currentSource && this.isPlaying) {
             try {
                 this.currentSource.stop();
                 this.pauseTime = this.audioContext.currentTime - this.startTime;
@@ -144,6 +151,10 @@ export class AudioManager {
     }
 
     togglePlayPause() {
+        if (!this.finalBuffer) {
+            throw new Error('No audio available');
+        }
+
         if (this.isPlaying) {
             this.pause();
         } else {
@@ -152,6 +163,10 @@ export class AudioManager {
     }
 
     skip(seconds) {
+        if (!this.finalBuffer) {
+            throw new Error('No audio available');
+        }
+
         const currentTime = this.isPlaying
             ? this.audioContext.currentTime - this.startTime
             : this.pauseTime;
@@ -167,7 +182,9 @@ export class AudioManager {
     }
 
     async downloadAudio(format) {
-        if (!this.finalBuffer) return;
+        if (!this.finalBuffer) {
+            throw new Error('No audio available to download');
+        }
 
         try {
             const audioData = await this.encodeAudio(format);
@@ -187,8 +204,10 @@ export class AudioManager {
     }
 
     async encodeAudio(format) {
-        // For now, we'll use WAV format for simplicity
-        // In a production environment, you'd want to implement proper encoding for each format
+        if (!this.finalBuffer) {
+            throw new Error('No audio available to encode');
+        }
+
         const length = this.finalBuffer.length;
         const channels = this.finalBuffer.numberOfChannels;
         const sampleRate = this.finalBuffer.sampleRate;

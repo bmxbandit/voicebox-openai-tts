@@ -6,13 +6,27 @@ import { ApiClient } from './api/apiClient.js';
 
 class App {
     constructor() {
-        this.storage = new StorageManager();
-        this.textProcessor = new TextProcessor();
-        this.audioManager = new AudioManager();
-        this.ui = new UIManager();
-        this.api = new ApiClient();
-        
-        this.init();
+        // Wait for DOM to be fully loaded before initializing
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.initialize());
+        } else {
+            this.initialize();
+        }
+    }
+
+    initialize() {
+        try {
+            this.storage = new StorageManager();
+            this.textProcessor = new TextProcessor();
+            this.audioManager = new AudioManager();
+            this.ui = new UIManager();
+            this.api = new ApiClient();
+            
+            this.init();
+        } catch (error) {
+            console.error('Initialization error:', error);
+            alert('Failed to initialize application');
+        }
     }
 
     async init() {
@@ -56,15 +70,19 @@ class App {
     }
 
     initializeEventListeners() {
+        if (!this.ui.elements) {
+            throw new Error('UI elements not initialized');
+        }
+
         try {
             // API Key handling
-            this.ui.elements.apiKey.addEventListener('change', (e) => {
+            this.ui.elements.apiKey?.addEventListener('change', (e) => {
                 this.storage.saveApiKey(e.target.value);
                 this.api.setApiKey(e.target.value);
             });
 
             // Preview button
-            this.ui.elements.previewBtn.addEventListener('click', () => {
+            this.ui.elements.previewBtn?.addEventListener('click', () => {
                 try {
                     const text = this.ui.elements.inputText.value;
                     const settings = this.ui.getCurrentSettings();
@@ -77,7 +95,7 @@ class App {
             });
 
             // Generate button
-            this.ui.elements.generateBtn.addEventListener('click', async () => {
+            this.ui.elements.generateBtn?.addEventListener('click', async () => {
                 try {
                     // Validate API key
                     if (!this.api.getApiKey()) {
@@ -124,63 +142,63 @@ class App {
                     }
 
                     const finalAudio = await this.audioManager.getFinalAudio();
-                    this.ui.initializePlayer(finalAudio);
+                    if (finalAudio) {
+                        this.ui.initializePlayer(finalAudio);
+                        this.setupAudioControls(); // Re-setup controls after new audio
+                    }
                 } catch (error) {
                     console.error('Generation error:', error);
                     this.ui.showError(error.message || 'Failed to generate audio');
                 }
             });
 
-            // Audio player controls
-            this.ui.elements.playPause.addEventListener('click', () => {
-                try {
-                    this.audioManager.togglePlayPause();
-                    this.ui.updatePlayPauseButton(this.audioManager.isPlaying);
-                } catch (error) {
-                    console.error('Playback error:', error);
-                    this.ui.showError('Failed to toggle playback');
-                }
-            });
-
-            this.ui.elements.rewind15.addEventListener('click', () => {
-                try {
-                    this.audioManager.skip(-15);
-                } catch (error) {
-                    console.error('Skip error:', error);
-                    this.ui.showError('Failed to skip backward');
-                }
-            });
-
-            this.ui.elements.forward15.addEventListener('click', () => {
-                try {
-                    this.audioManager.skip(15);
-                } catch (error) {
-                    console.error('Skip error:', error);
-                    this.ui.showError('Failed to skip forward');
-                }
-            });
-
-            this.ui.elements.downloadBtn.addEventListener('click', () => {
-                try {
-                    this.audioManager.downloadAudio(this.ui.getCurrentSettings().format);
-                } catch (error) {
-                    console.error('Download error:', error);
-                    this.ui.showError('Failed to download audio');
-                }
-            });
+            this.setupAudioControls();
         } catch (error) {
             console.error('Error setting up event listeners:', error);
-            this.ui.showError('Failed to initialize controls');
+            throw new Error('Failed to initialize controls');
         }
+    }
+
+    setupAudioControls() {
+        // Audio player controls
+        this.ui.elements.playPause?.addEventListener('click', () => {
+            try {
+                this.audioManager.togglePlayPause();
+                this.ui.updatePlayPauseButton(this.audioManager.isPlaying);
+            } catch (error) {
+                console.error('Playback error:', error);
+                this.ui.showError('Failed to toggle playback');
+            }
+        });
+
+        this.ui.elements.rewind15?.addEventListener('click', () => {
+            try {
+                this.audioManager.skip(-15);
+            } catch (error) {
+                console.error('Skip error:', error);
+                this.ui.showError('Failed to skip backward');
+            }
+        });
+
+        this.ui.elements.forward15?.addEventListener('click', () => {
+            try {
+                this.audioManager.skip(15);
+            } catch (error) {
+                console.error('Skip error:', error);
+                this.ui.showError('Failed to skip forward');
+            }
+        });
+
+        this.ui.elements.downloadBtn?.addEventListener('click', () => {
+            try {
+                this.audioManager.downloadAudio(this.ui.getCurrentSettings().format);
+            } catch (error) {
+                console.error('Download error:', error);
+                this.ui.showError('Failed to download audio');
+            }
+        });
     }
 }
 
-// Initialize the application when the DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    try {
-        new App();
-    } catch (error) {
-        console.error('Application startup error:', error);
-        alert('Failed to start application');
-    }
-});
+// Initialize the application
+new App();
