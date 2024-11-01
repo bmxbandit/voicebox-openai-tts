@@ -86,11 +86,17 @@ export class UIManager {
         this.elements.chunkPreview.innerHTML = chunks.map((chunk, index) => {
             const text = typeof chunk === 'string' ? chunk : chunk.text;
             let silenceInfo = '';
+            let chunkType = '';
             
             if (typeof chunk === 'object' && chunk.silence > 0) {
+                let silenceLabel = '';
+                if (chunk.type === 'h1') silenceLabel = 'H1 Tag Silence';
+                else if (chunk.type === 'h2') silenceLabel = 'H2 Tag Silence';
+                else if (chunk.type === 'chapter-end') silenceLabel = 'Chapter End Silence';
+                
                 silenceInfo = `<div class="silence-info">
                     <i class="bi bi-volume-mute"></i> 
-                    <span class="badge bg-secondary">${chunk.silence}s silence</span>
+                    <span class="badge bg-secondary">${silenceLabel}: ${chunk.silence}s</span>
                 </div>`;
             }
             

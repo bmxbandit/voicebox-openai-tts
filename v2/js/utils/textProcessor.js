@@ -19,7 +19,8 @@ export class TextProcessor {
                 }
                 chunks.push({
                     text: paragraph,
-                    silence: parseFloat(settings.h1Silence)
+                    silence: parseFloat(settings.h1Silence),
+                    type: 'h1'
                 });
             } else if (paragraph.startsWith('## ')) {
                 if (currentChunk.length > 0) {
@@ -28,16 +29,18 @@ export class TextProcessor {
                 }
                 chunks.push({
                     text: paragraph,
-                    silence: parseFloat(settings.h2Silence)
+                    silence: parseFloat(settings.h2Silence),
+                    type: 'h2'
                 });
-            } else if (paragraph.startsWith('###')) {
+            } else if (paragraph.trim() === '###') {
                 if (currentChunk.length > 0) {
                     chunks.push(currentChunk.trim());
                     currentChunk = '';
                 }
                 chunks.push({
-                    text: paragraph,
-                    silence: parseFloat(settings.chapterEndSilence)
+                    text: '',
+                    silence: parseFloat(settings.chapterEndSilence),
+                    type: 'chapter-end'
                 });
             } else {
                 // Regular paragraph
